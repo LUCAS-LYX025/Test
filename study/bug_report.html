@@ -1,0 +1,64 @@
+
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Bug Report</title>
+            <style>
+                table {
+                    border-collapse: collapse;
+                    width: 100%;
+                }
+                th, td {
+                    border: 1px solid #dddddd;
+                    text-align: left;
+                    padding: 8px;
+                }
+                th {
+                    background-color: #f2f2f2;
+                }
+            </style>
+        </head>
+        <body>
+            <h2>Bug Report</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Bug标题</th>
+                        <th>原因</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr>
+                        <td>【生产环境】【后端】【报价单】：询价的报价同步到报价单时会覆盖掉原有的报价单里的报价</td>
+                        <td>当用户当天没有更新过报价单时，给询价报的价格在同步到报价单时把之前的报价单覆盖掉了，导致报价单只剩下一个牌号的报价</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>【生产环境】【后端】【专塑会员】：试用会员查看月报年报会出现报错</td>
+                        <td>4.18号晚上试用会员免费规则调整后（需求变动调整），4月19号早上被发现，影响到了查看付费的月报、年报（后端报错空指针异常），4月19号中午修复
+付费类的月报和年报是要积分解锁的（这条禄英漏测了，导致少杰统一处理的地方也漏了）
+解决方案：增加控制条件，解决空指针异常。使试用会员查看付费的月报、年报不会报错
+</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>【正式环境】-【IOS】-【企业库】：机械和颜填料查询为空（明明有数量）</td>
+                        <td>IOS筛选类型key没有对应，app提版审核太慢，后端做兼容处理
+颜填料和机械设备有问题（一个取了名称，一个取了类型）
+&nbsp;</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>后台选不到再生PC牌号</td>
+                        <td>后端服务挂了，导致数据没有同步
+</td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </body>
+        </html>
+        
