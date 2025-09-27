@@ -9,6 +9,3 @@ python-dateutil==2.8.2
 uuid==1.30
 faker==19.13.0
 pyperclip==1.8.2
-xerox==0.4.1  # 可选，macOS的备选剪贴板工具
-pyobjc-core==10.0  # 对于macOS系统
-pyobjc-framework-AppKit==10.0  # 对于macOS系统
