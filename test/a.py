@@ -17,6 +17,7 @@ import requests
 from bs4 import BeautifulSoup
 import socket
 import random
+import streamlit.components.v1 as components
 
 # 导入Faker库
 try:
@@ -27,14 +28,6 @@ try:
 except ImportError:
     FAKER_AVAILABLE = False
     st.warning("Faker库未安装，部分高级功能将受限。请运行: pip install faker")
-
-# 尝试导入pyperclip
-try:
-    import pyperclip
-
-    PYPERCLIP_AVAILABLE = True
-except ImportError:
-    PYPERCLIP_AVAILABLE = False
 
 # 设置页面
 st.set_page_config(
@@ -116,24 +109,120 @@ st.markdown("""
 
 
 # ================ 辅助函数 ================
+def escape_js_string(text):
+    """安全转义 JavaScript 字符串"""
+    # 将文本转换为 JSON 字符串，这会自动处理所有特殊字符
+    return json.dumps(text)
+
+
+def create_copy_button(text, button_text="📋 复制到剪贴板", key=None):
+    """创建一键复制按钮（修复版本）"""
+
+    if key is None:
+        key = hash(text)
+
+    # 安全转义文本
+    escaped_text = escape_js_string(text)
+
+    # 更安全的 JavaScript 复制函数
+    copy_script = f"""
+    <script>
+    function copyTextToClipboard{key}() {{
+        const text = {escaped_text};
+
+        if (!navigator.clipboard) {{
+            // 使用传统方法
+            return fallbackCopyTextToClipboard(text);
+        }}
+        return navigator.clipboard.writeText(text).then(function() {{
+            return true;
+        }}, function(err) {{
+            // 如果现代API失败，使用传统方法
+            return fallbackCopyTextToClipboard(text);
+        }});
+    }}
+
+    function fallbackCopyTextToClipboard(text) {{
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.top = '0';
+        textArea.style.left = '0';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {{
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            return successful;
+        }} catch (err) {{
+            document.body.removeChild(textArea);
+            return false;
+        }}
+    }}
+
+    // 为按钮添加点击事件
+    document.addEventListener('DOMContentLoaded', function() {{
+        const button = document.querySelector('[data-copy-button="{key}"]');
+        if (button) {{
+            button.addEventListener('click', function() {{
+                copyTextToClipboard{key}().then(function(success) {{
+                    if (success) {{
+                        // 显示成功提示
+                        const originalText = button.innerHTML;
+                        button.innerHTML = '✅ 复制成功！';
+                        button.style.background = '#28a745';
+                        setTimeout(function() {{
+                            button.innerHTML = originalText;
+                            button.style.background = '';
+                        }}, 2000);
+                    }} else {{
+                        button.innerHTML = '❌ 复制失败';
+                        button.style.background = '#dc3545';
+                        setTimeout(function() {{
+                            button.innerHTML = '{button_text}';
+                            button.style.background = '';
+                        }}, 2000);
+                    }}
+                }});
+            }});
+        }}
+    }});
+    </script>
+    """
+
+    # 创建按钮的 HTML
+    button_html = f"""
+    <div>
+        <button data-copy-button="{key}" 
+                style="background:#1f77b4;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:14px;margin:5px;">
+            {button_text}
+        </button>
+    </div>
+    """
+
+    # 渲染按钮和脚本
+    components.html(button_html + copy_script, height=60)
+
+
 def copy_to_clipboard(text):
-    """复制文本到剪贴板"""
+    """复制文本到剪贴板 - 使用新的复制组件"""
     try:
-        if PYPERCLIP_AVAILABLE:
-            pyperclip.copy(text)
-            return True
-        else:
-            # 备用方案：使用Streamlit的下载功能
-            st.download_button(
-                label="下载内容（复制备用）",
-                data=text,
-                file_name="temp_content.txt",
-                mime="text/plain",
-                key=f"download_{hash(text)}"
-            )
-            return False
+        # 直接使用新的复制按钮组件
+        create_copy_button(text, "📋 复制内容", key=f"copy_{hash(text)}")
+        return True
     except Exception as e:
-        st.error(f"复制失败: {e}")
+        st.error(f"复制功能出错: {e}")
+        # 备用方案：提供下载按钮
+        st.download_button(
+            label="📥 下载内容（复制备用）",
+            data=text,
+            file_name="content.txt",
+            mime="text/plain",
+            key=f"download_{hash(text)}"
+        )
         return False
 
 
@@ -1317,20 +1406,20 @@ if tool_category == "数据生成工具":
                     st.markdown(f'<div class="result-box">{st.session_state.faker_result}</div>',
                                 unsafe_allow_html=True)
 
-                col1, col2 = st.columns([1, 4])
-                with col1:
-                    if st.button("📋 复制结果", key="copy_faker"):
-                        if copy_to_clipboard(st.session_state.faker_result):
-                            st.success("✅ 已复制到剪贴板！")
-                        else:
-                            st.info("📥 请手动选择文本复制")
-                with col2:
-                    st.download_button(
-                        label="💾 下载结果",
-                        data=st.session_state.faker_result,
-                        file_name=f"faker_data_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                        mime="text/plain"
-                    )
+                # 使用新的复制组件
+                create_copy_button(
+                    st.session_state.faker_result,
+                    button_text="📋 复制结果",
+                    key="copy_faker_result"
+                )
+
+                # 保留下载按钮作为备用
+                st.download_button(
+                    label="💾 下载结果",
+                    data=st.session_state.faker_result,
+                    file_name=f"faker_data_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain"
+                )
 
     else:  # 基础数据生成器
         st.markdown('<div class="tool-card">🔧 基础数据生成器</div>', unsafe_allow_html=True)
@@ -1422,21 +1511,21 @@ if tool_category == "数据生成工具":
                 st.markdown('<div class="result-box">' + st.session_state.random_content_result + '</div>',
                             unsafe_allow_html=True)
 
-                col1, col2 = st.columns([1, 4])
-                with col1:
-                    if st.button("复制结果", key="copy_random_content"):
-                        if copy_to_clipboard(st.session_state.random_content_result):
-                            st.success("✅ 已复制到剪贴板！")
-                        else:
-                            st.info("📥 请手动选择文本复制")
-                with col2:
-                    st.download_button(
-                        label="下载结果",
-                        data=st.session_state.random_content_result,
-                        file_name=f"随机内容_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                        mime="text/plain",
-                        key="download_random_content"
-                    )
+                # 使用新的复制组件替换旧的复制按钮
+                create_copy_button(
+                    st.session_state.random_content_result,
+                    button_text="📋 复制结果",
+                    key="copy_random_content"
+                )
+
+                # 保留下载按钮
+                st.download_button(
+                    label="💾 下载结果",
+                    data=st.session_state.random_content_result,
+                    file_name=f"随机内容_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain",
+                    key="download_random_content"
+                )
 
         elif data_gen_tool == "随机邮箱生成器":
             st.markdown('<div class="category-card">📧 随机邮箱生成器</div>', unsafe_allow_html=True)
@@ -1491,24 +1580,22 @@ if tool_category == "数据生成工具":
                 st.markdown('<div class="result-box">' + st.session_state.email_result + '</div>',
                             unsafe_allow_html=True)
 
-                col1, col2 = st.columns([1, 4])
-                with col1:
-                    if st.button("复制邮箱列表", key="copy_emails"):
-                        if copy_to_clipboard(st.session_state.email_result):
-                            st.success("✅ 已复制到剪贴板！")
-                        else:
-                            st.info("📥 请手动选择文本复制")
-                with col2:
-                    st.download_button(
-                        label="下载邮箱列表",
-                        data=st.session_state.email_result,
-                        file_name=f"邮箱列表_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                        mime="text/plain",
-                        key="download_emails"
-                    )
+                # 使用新的复制组件
+                create_copy_button(
+                    st.session_state.email_result,
+                    button_text="📋 复制邮箱列表",
+                    key="copy_emails"
+                )
 
+                # 保留下载按钮
+                st.download_button(
+                    label="💾 下载邮箱列表",
+                    data=st.session_state.email_result,
+                    file_name=f"邮箱列表_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain",
+                    key="download_emails"
+                )
 
-        # 在基础数据生成器部分更新相关工具
         elif data_gen_tool == "电话号码生成器":
             st.markdown('<div class="category-card">📞 电话号码生成器</div>', unsafe_allow_html=True)
 
@@ -1589,21 +1676,21 @@ if tool_category == "数据生成工具":
                 st.markdown('<div class="result-box">' + st.session_state.phone_result + '</div>',
                             unsafe_allow_html=True)
 
-                col1, col2 = st.columns([1, 4])
-                with col1:
-                    if st.button("复制电话号码", key="copy_phones"):
-                        if copy_to_clipboard(st.session_state.phone_result):
-                            st.success("✅ 已复制到剪贴板！")
-                        else:
-                            st.info("📥 请手动选择文本复制")
-                with col2:
-                    st.download_button(
-                        label="下载电话号码",
-                        data=st.session_state.phone_result,
-                        file_name=f"电话号码_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                        mime="text/plain",
-                        key="download_phones"
-                    )
+                # 使用新的复制组件
+                create_copy_button(
+                    st.session_state.phone_result,
+                    button_text="📋 复制电话号码",
+                    key="copy_phones"
+                )
+
+                # 保留下载按钮
+                st.download_button(
+                    label="💾 下载电话号码",
+                    data=st.session_state.phone_result,
+                    file_name=f"电话号码_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain",
+                    key="download_phones"
+                )
 
         elif data_gen_tool == "随机地址生成器":
             st.markdown('<div class="category-card">🏠 随机地址生成器</div>', unsafe_allow_html=True)
@@ -1718,21 +1805,21 @@ if tool_category == "数据生成工具":
                 st.markdown('<div class="result-box">' + st.session_state.address_result + '</div>',
                             unsafe_allow_html=True)
 
-                col1, col2 = st.columns([1, 4])
-                with col1:
-                    if st.button("复制地址", key="copy_addresses"):
-                        if copy_to_clipboard(st.session_state.address_result):
-                            st.success("✅ 已复制到剪贴板！")
-                        else:
-                            st.info("📥 请手动选择文本复制")
-                with col2:
-                    st.download_button(
-                        label="下载地址列表",
-                        data=st.session_state.address_result,
-                        file_name=f"地址列表_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                        mime="text/plain",
-                        key="download_addresses"
-                    )
+                # 使用新的复制组件
+                create_copy_button(
+                    st.session_state.address_result,
+                    button_text="📋 复制地址",
+                    key="copy_addresses"
+                )
+
+                # 保留下载按钮
+                st.download_button(
+                    label="💾 下载地址列表",
+                    data=st.session_state.address_result,
+                    file_name=f"地址列表_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain",
+                    key="download_addresses"
+                )
 
         elif data_gen_tool == "随机身份证生成器":
             st.markdown('<div class="category-card">🆔 随机身份证生成器</div>', unsafe_allow_html=True)
@@ -1815,21 +1902,21 @@ if tool_category == "数据生成工具":
                 st.markdown('<div class="result-box">' + st.session_state.id_card_result + '</div>',
                             unsafe_allow_html=True)
 
-                col1, col2 = st.columns([1, 4])
-                with col1:
-                    if st.button("复制身份证号", key="copy_id_cards"):
-                        if copy_to_clipboard(st.session_state.id_card_result):
-                            st.success("✅ 已复制到剪贴板！")
-                        else:
-                            st.info("📥 请手动选择文本复制")
-                with col2:
-                    st.download_button(
-                        label="下载身份证号",
-                        data=st.session_state.id_card_result,
-                        file_name=f"身份证列表_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                        mime="text/plain",
-                        key="download_id_cards"
-                    )
+                # 使用新的复制组件
+                create_copy_button(
+                    st.session_state.id_card_result,
+                    button_text="📋 复制身份证号",
+                    key="copy_id_cards"
+                )
+
+                # 保留下载按钮
+                st.download_button(
+                    label="💾 下载身份证号",
+                    data=st.session_state.id_card_result,
+                    file_name=f"身份证列表_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain",
+                    key="download_id_cards"
+                )
 
 # 字数统计工具
 elif tool_category == "字数统计工具":
