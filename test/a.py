@@ -16,6 +16,25 @@ import base64
 import requests
 from bs4 import BeautifulSoup
 import socket
+import random
+
+# 导入Faker库
+try:
+    from faker import Faker
+
+    fake = Faker('zh_CN')
+    FAKER_AVAILABLE = True
+except ImportError:
+    FAKER_AVAILABLE = False
+    st.warning("Faker库未安装，部分高级功能将受限。请运行: pip install faker")
+
+# 尝试导入pyperclip
+try:
+    import pyperclip
+
+    PYPERCLIP_AVAILABLE = True
+except ImportError:
+    PYPERCLIP_AVAILABLE = False
 
 # 设置页面
 st.set_page_config(
@@ -43,66 +62,81 @@ st.markdown("""
     }
     .tool-card {
         background-color: #f0f2f6;
-        padding: 1rem;
+        padding: 1.5rem;
         border-radius: 0.5rem;
         margin-bottom: 1rem;
         border-left: 4px solid #1f77b4;
     }
-    .success-box {
-        background-color: #d4edda;
-        color: #155724;
-        padding: 0.75rem;
-        border-radius: 0.25rem;
-        margin: 0.5rem 0;
-    }
-    .error-box {
-        background-color: #f8d7da;
-        color: #721c24;
-        padding: 0.75rem;
-        border-radius: 0.25rem;
-        margin: 0.5rem 0;
-    }
-    .warning-box {
-        background-color: #fff3cd;
-        color: #856404;
-        padding: 0.75rem;
-        border-radius: 0.25rem;
-        margin: 0.5rem 0;
-    }
-    .ip-info-card {
+    .category-card {
         background-color: #ffffff;
         border: 1px solid #e0e0e0;
-        border-radius: 8px;
+        border-radius: 0.5rem;
         padding: 1rem;
         margin: 0.5rem 0;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .ip-info-title {
-        font-weight: bold;
-        color: #1f77b4;
-        margin-bottom: 0.5rem;
+    .copy-btn {
+        background-color: #1f77b4;
+        color: white;
+        border: none;
+        padding: 0.5rem 1.5rem;
+        border-radius: 0.25rem;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+        margin: 5px;
     }
-    .json-key {
-        color: #d63384;
-        font-weight: bold;
+    .copy-btn:hover {
+        background-color: #1668a5;
     }
-    .json-string {
-        color: #20c997;
+    .copy-success {
+        background-color: #28a745 !important;
     }
-    .json-number {
-        color: #fd7e14;
+    .result-box {
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        font-family: 'Courier New', monospace;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
     }
-    .json-boolean {
-        color: #6610f2;
-    }
-    .json-null {
-        color: #6c757d;
+    .faker-badge {
+        background-color: #ff6b6b;
+        color: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.7rem;
+        margin-left: 0.5rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
 
 # ================ 辅助函数 ================
+def copy_to_clipboard(text):
+    """复制文本到剪贴板"""
+    try:
+        if PYPERCLIP_AVAILABLE:
+            pyperclip.copy(text)
+            return True
+        else:
+            # 备用方案：使用Streamlit的下载功能
+            st.download_button(
+                label="下载内容（复制备用）",
+                data=text,
+                file_name="temp_content.txt",
+                mime="text/plain",
+                key=f"download_{hash(text)}"
+            )
+            return False
+    except Exception as e:
+        st.error(f"复制失败: {e}")
+        return False
+
+
 def count_keys(obj):
     """计算JSON对象的键数量"""
     if isinstance(obj, dict):
@@ -423,22 +457,242 @@ def find_same_site_sites(site):
         return {'success': False, 'error': str(e)}
 
 
+def format_profile_data(profile_dict):
+    """格式化完整个人信息显示"""
+    try:
+        # 如果传入的是字符串，尝试转换为字典
+        if isinstance(profile_dict, str):
+            # 尝试不同的解析方法
+            try:
+                import ast
+                profile_dict = ast.literal_eval(profile_dict)
+            except:
+                # 如果ast解析失败，尝试eval（注意安全风险，但这里数据是可信的）
+                profile_dict = eval(profile_dict)
+
+        # 提取基本信息
+        name = profile_dict.get('name', '未知')
+        sex = '女' if profile_dict.get('sex') == 'F' else '男'
+        birthdate = profile_dict.get('birthdate', '未知')
+        mail = profile_dict.get('mail', '（信息缺失）')
+        job = profile_dict.get('job', '（信息缺失）')
+        address = profile_dict.get('address', '（信息缺失）')
+        company = profile_dict.get('company', '（信息缺失）')
+        website = profile_dict.get('website', [])
+        username = profile_dict.get('username', '（信息缺失）')
+
+        # 格式化出生日期
+        if birthdate != '未知':
+            if hasattr(birthdate, 'year'):
+                birthdate = f"{birthdate.year}年{birthdate.month}月{birthdate.day}日"
+            else:
+                birthdate = str(birthdate)
+
+        # 格式化地址（简化显示）
+        if address != '（信息缺失）':
+            # 提取省份和城市信息
+            address_parts = str(address).split(' ')
+            if len(address_parts) > 0:
+                simplified_address = address_parts[0]
+                # 进一步简化，只显示到市级
+                if '省' in simplified_address:
+                    # 省级地址处理
+                    parts = simplified_address.split('省')
+                    if len(parts) > 1:
+                        city_part = parts[1]
+                        if '市' in city_part:
+                            city_parts = city_part.split('市')
+                            simplified_address = parts[0] + '省' + city_parts[0] + '市'
+                elif '自治区' in simplified_address:
+                    # 自治区处理
+                    parts = simplified_address.split('自治区')
+                    if len(parts) > 1:
+                        city_part = parts[1]
+                        if '市' in city_part:
+                            city_parts = city_part.split('市')
+                            simplified_address = parts[0] + '自治区' + city_parts[0] + '市'
+                elif '市' in simplified_address:
+                    # 直接处理直辖市
+                    parts = simplified_address.split('市')
+                    if len(parts) > 1:
+                        simplified_address = parts[0] + '市'
+                address = simplified_address
+
+        # 构建格式化结果
+        result = []
+        result.append("------------------------------")
+        result.append(f"个人信息--{name}")
+        result.append(f"姓名： {name}")
+        result.append(f"性别： {sex}")
+        result.append(f"出生日期： {birthdate}")
+        result.append(f"电子邮箱： {mail}")
+        result.append("联系电话： （信息缺失）")
+        result.append(f"求职意向： {job}")
+        result.append(f"所在地区： {address}")
+        result.append("")
+        result.append("工作经历")
+        result.append(f"公司： {company}")
+        result.append(f"职位： {job}")
+        result.append("其他信息")
+
+        # 处理网站列表
+        if website:
+            website_str = "， ".join(website)
+            result.append(f"个人网站/主页： {website_str}")
+        else:
+            result.append("个人网站/主页： （信息缺失）")
+
+        result.append(f"用户名： {username}")
+        result.append("------------------------------")
+
+        return "\n".join(result)
+
+    except Exception as e:
+        return f"格式化数据时出错: {str(e)}\n原始数据: {profile_dict}"
+
+
+# Faker数据生成函数
+def generate_faker_data(category, subcategory, count=1, **kwargs):
+    """使用Faker生成数据"""
+    if not FAKER_AVAILABLE:
+        return ["Faker库未安装，请先安装: pip install faker"]
+
+    results = []
+    try:
+        for i in range(count):
+            if category == "人物信息":
+                if subcategory == "随机姓名":
+                    results.append(fake.name())
+                elif subcategory == "随机姓":
+                    results.append(fake.last_name())
+                elif subcategory == "随机名":
+                    results.append(fake.first_name())
+                elif subcategory == "男性姓名":
+                    results.append(fake.name_male())
+                elif subcategory == "女性姓名":
+                    results.append(fake.name_female())
+                elif subcategory == "完整个人信息":
+                    # 直接获取profile字典对象
+                    raw_profile = fake.profile()
+                    formatted_profile = format_profile_data(raw_profile)
+                    results.append(formatted_profile)
+
+            elif category == "地址信息":
+                if subcategory == "随机地址":
+                    results.append(fake.address())
+                elif subcategory == "随机城市":
+                    results.append(fake.city())
+                elif subcategory == "随机国家":
+                    results.append(fake.country())
+                elif subcategory == "随机邮编":
+                    results.append(fake.postcode())
+                elif subcategory == "随机街道":
+                    results.append(fake.street_address())
+
+            elif category == "网络信息":
+                if subcategory == "随机邮箱":
+                    results.append(fake.email())
+                elif subcategory == "安全邮箱":
+                    results.append(fake.safe_email())
+                elif subcategory == "公司邮箱":
+                    results.append(fake.company_email())
+                elif subcategory == "免费邮箱":
+                    results.append(fake.free_email())
+                elif subcategory == "随机域名":
+                    results.append(fake.domain_name())
+                elif subcategory == "随机URL":
+                    results.append(fake.url())
+                elif subcategory == "随机IP地址":
+                    results.append(fake.ipv4())
+                elif subcategory == "随机用户代理":
+                    results.append(fake.user_agent())
+
+            elif category == "公司信息":
+                if subcategory == "随机公司名":
+                    results.append(fake.company())
+                elif subcategory == "公司后缀":
+                    results.append(fake.company_suffix())
+                elif subcategory == "职位":
+                    results.append(fake.job())
+
+            elif category == "金融信息":
+                if subcategory == "信用卡号":
+                    results.append(fake.credit_card_number())
+                elif subcategory == "信用卡提供商":
+                    results.append(fake.credit_card_provider())
+                elif subcategory == "信用卡有效期":
+                    results.append(fake.credit_card_expire())
+                elif subcategory == "货币":
+                    results.append(fake.currency())
+
+            elif category == "日期时间":
+                if subcategory == "随机日期时间":
+                    results.append(str(fake.date_time()))
+                elif subcategory == "随机日期":
+                    results.append(fake.date())
+                elif subcategory == "随机时间":
+                    results.append(fake.time())
+                elif subcategory == "今年日期":
+                    results.append(str(fake.date_time_this_year()))
+                elif subcategory == "本月日期":
+                    results.append(str(fake.date_time_this_month()))
+
+            elif category == "文本内容":
+                if subcategory == "随机单词":
+                    results.append(fake.word())
+                elif subcategory == "随机句子":
+                    results.append(fake.sentence())
+                elif subcategory == "随机段落":
+                    results.append(fake.paragraph())
+                elif subcategory == "随机文本":
+                    results.append(fake.text(max_nb_chars=kwargs.get('length', 200)))
+
+            elif category == "电话号码":
+                if subcategory == "随机手机号":
+                    results.append(fake.phone_number())
+                elif subcategory == "号段前缀":
+                    results.append(fake.phonenumber_prefix())
+
+            elif category == "其他信息":
+                if subcategory == "随机颜色":
+                    results.append(fake.color_name())
+                elif subcategory == "随机UUID":
+                    results.append(fake.uuid4())
+                elif subcategory == "随机MD5":
+                    results.append(fake.md5())
+                elif subcategory == "随机SHA1":
+                    results.append(fake.sha1())
+                elif subcategory == "随机文件扩展名":
+                    results.append(fake.file_extension())
+                elif subcategory == "随机MIME类型":
+                    results.append(fake.mime_type())
+
+    except Exception as e:
+        results = [f"生成数据时出错: {str(e)}"]
+
+    return results
+
+
+# 传统数据生成函数（保留原有功能）
 def generate_random_string(length, chars_type):
     """生成随机字符串"""
     chars = ""
-    if "小写字母" in chars_type:
-        chars += "abcdefghijklmnopqrstuvwxyz"
-    if "大写字母" in chars_type:
-        chars += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    if "数字" in chars_type:
-        chars += "0123456789"
-    if "特殊字符" in chars_type:
-        chars += "!@#$%^&*()_+-=[]{}|;:,.<>?"
+    if "小写字母" in chars_type: chars += "abcdefghijklmnopqrstuvwxyz"
+    if "大写字母" in chars_type: chars += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    if "数字" in chars_type: chars += "0123456789"
+    if "特殊字符" in chars_type: chars += "!@#$%^&*()_+-=[]{}|;:,.<>?"
+    if not chars: chars = "abcdefghijklmnopqrstuvwxyz"
     return ''.join(random.choice(chars) for _ in range(length))
 
 
 def generate_random_password(length, options):
     """生成随机密码"""
+    if FAKER_AVAILABLE:
+        return fake.password(length=length, special_chars="包含特殊字符" in options,
+                             digits="包含数字" in options, upper_case="包含大写字母" in options,
+                             lower_case="包含小写字母" in options)
+
+    # 备用方案
     password = ""
     chars = ""
     if "包含小写字母" in options:
@@ -454,47 +708,62 @@ def generate_random_password(length, options):
         password += random.choice("!@#$%^&*()_+-=[]{}|;:,.<>?")
         chars += "!@#$%^&*()_+-=[]{}|;:,.<>?"
 
+    if not chars:
+        password += random.choice("abcdefghijklmnopqrstuvwxyz")
+        chars += "abcdefghijklmnopqrstuvwxyz0123456789"
+        password += random.choice("0123456789")
+
     password += ''.join(random.choice(chars) for _ in range(length - len(password)))
     password_list = list(password)
     random.shuffle(password_list)
     return ''.join(password_list)
 
 
-def generate_random_email(domain_option, custom_domain, selected_domains):
-    """生成随机邮箱"""
-    username_length = random.randint(5, 12)
-    username = ''.join(random.choice("abcdefghijklmnopqrstuvwxyz0123456789") for _ in range(username_length))
-
-    if domain_option == "自定义域名":
-        domain = custom_domain
-    else:
-        domain = random.choice(selected_domains) if selected_domains else random.choice(["gmail.com", "yahoo.com"])
-
-    return f"{username}@{domain}"
-
-
 def generate_random_phone_number(operator):
     """生成随机电话号码"""
+    if FAKER_AVAILABLE:
+        return fake.phone_number()
+
+    # 备用方案
     mobile_prefixes = ["139", "138", "137", "136", "135", "134", "159", "158", "157", "150", "151", "152", "147", "188",
                        "187"]
     unicom_prefixes = ["130", "131", "132", "155", "156", "185", "186"]
     telecom_prefixes = ["133", "153", "180", "189"]
+    broadcast_prefixes = ["192"]
 
-    if operator == "移动" or (operator == "随机" and random.random() < 0.4):
+    if operator == "移动":
         prefix = random.choice(mobile_prefixes)
-    elif operator == "联通" or (operator == "随机" and random.random() < 0.3):
+    elif operator == "联通":
         prefix = random.choice(unicom_prefixes)
-    else:
+    elif operator == "电信":
         prefix = random.choice(telecom_prefixes)
+    elif operator == "广电":
+        prefix = random.choice(broadcast_prefixes)
+    else:
+        rand_val = random.random()
+        if rand_val < 0.35:
+            prefix = random.choice(mobile_prefixes)
+        elif rand_val < 0.6:
+            prefix = random.choice(unicom_prefixes)
+        elif rand_val < 0.85:
+            prefix = random.choice(telecom_prefixes)
+        else:
+            prefix = random.choice(broadcast_prefixes)
 
     suffix = ''.join([str(random.randint(0, 9)) for _ in range(8)])
     return f"{prefix}{suffix}"
 
 
-def generate_random_address(province, city):
+# 优化地址生成函数
+def generate_random_address(province, city, detailed=True):
     """生成随机地址"""
-    streets = ["中山路", "解放路", "人民路", "建设路", "和平路"]
-    communities = ["小区", "花园", "大厦", "公寓", "广场"]
+    if not detailed:
+        return f"{province}{city}"
+
+    # 详细地址生成
+    streets = ["中山路", "解放路", "人民路", "建设路", "和平路", "新华路",
+               "文化路", "胜利路", "团结路", "友谊路"]
+    communities = ["小区", "花园", "大厦", "公寓", "广场", "苑", "居", "湾", "城", "国际"]
     numbers = [str(i) for i in range(1, 201)]
 
     street = random.choice(streets)
@@ -504,6 +773,7 @@ def generate_random_address(province, city):
     return f"{province}{city}{street}{number}号{random.randint(1, 20)}栋{random.randint(1, 30)}单元{random.randint(101, 1500)}室"
 
 
+# 优化身份证生成函数
 def generate_random_id_card(province, gender, min_age, max_age):
     """生成随机身份证号码"""
     # 省份代码
@@ -563,203 +833,1039 @@ def generate_random_id_card(province, gender, min_age, max_age):
     return first_17 + check_code
 
 
+# 在Faker辅助函数部分添加条件生成函数
+def generate_conditional_phone(operator):
+    """生成手机号码（仅匹配运营商号段）"""
+    # 运营商号段定义
+    operator_prefixes = {
+        "移动": ["134", "135", "136", "137", "138", "139", "147", "150", "151", "152", "157", "158", "159", "178", "182",
+               "183", "184", "187", "188"],
+        "联通": ["130", "131", "132", "145", "155", "156", "166", "175", "176", "185", "186"],
+        "电信": ["133", "149", "153", "173", "177", "180", "181", "189", "199"],
+        "广电": ["192"]
+    }
+
+    # 如果选择"随机"，则从所有运营商中随机选择
+    if operator == "随机":
+        all_prefixes = []
+        for op in operator_prefixes.values():
+            all_prefixes.extend(op)
+        prefix = random.choice(all_prefixes)
+    else:
+        prefix = random.choice(operator_prefixes[operator])
+
+    # 生成后8位数字（总长度=11位）
+    suffix = ''.join([str(random.randint(0, 9)) for _ in range(11 - len(prefix))])
+    return f"{prefix}{suffix}"
+
+
+def generate_landline_number(operator=None, area_code=None):
+    """生成座机号码（区号可选）"""
+    # 如果没有指定区号，随机生成一个（3-4位）
+    if not area_code:
+        area_code = str(random.randint(200, 9999)).zfill(3 if random.random() > 0.5 else 4)
+
+    # 生成本地号码（7-8位）
+    local_number = str(random.randint(2000000, 99999999)).zfill(7 if random.random() > 0.5 else 8)
+
+    # 格式化输出（带分隔符）
+    return f"{area_code}-{local_number}"
+
+
+def generate_international_phone(country):
+    """生成国际手机号码"""
+    # 国际号码格式定义（国家代码 + 手机号格式）
+    country_formats = {
+        # 亚洲
+        "日本": {
+            "code": "+81",
+            "format": ["90-####-####", "80-####-####", "70-####-####"]
+        },
+        "韩国": {
+            "code": "+82",
+            "format": ["10-####-####", "16-####-####", "19-####-####"]
+        },
+        "印度": {
+            "code": "+91",
+            "format": ["9#########", "8#########", "7#########"]
+        },
+        "新加坡": {
+            "code": "+65",
+            "format": ["9### ####", "8### ####", "6### ####"]
+        },
+        "马来西亚": {
+            "code": "+60",
+            "format": ["12-### ####", "13-### ####", "16-### ####"]
+        },
+        "泰国": {
+            "code": "+66",
+            "format": ["8#-###-####", "9#-###-####", "6#-###-####"]
+        },
+        "越南": {
+            "code": "+84",
+            "format": ["9#-####-###", "8#-####-###", "3#-####-###"]
+        },
+        "菲律宾": {
+            "code": "+63",
+            "format": ["9##-###-####", "8##-###-####", "2##-###-####"]
+        },
+        "印度尼西亚": {
+            "code": "+62",
+            "format": ["8##-####-###", "8##-###-####"]
+        },
+        "香港": {
+            "code": "+852",
+            "format": ["5### ####", "6### ####", "9### ####"]
+        },
+        "台湾": {
+            "code": "+886",
+            "format": ["9## ### ###", "9########", "4## ### ###"]
+        },
+        "澳门": {
+            "code": "+853",
+            "format": ["6### ####", "5### ####"]
+        },
+
+        # 欧洲
+        "英国": {
+            "code": "+44",
+            "format": ["7### ######", "7########", "20-####-####"]
+        },
+        "德国": {
+            "code": "+49",
+            "format": ["15## #######", "17## #######", "16## #######"]
+        },
+        "法国": {
+            "code": "+33",
+            "format": ["6 ## ## ## ##", "7 ## ## ## ##", "1 ## ## ## ##"]
+        },
+        "意大利": {
+            "code": "+39",
+            "format": ["3## #######", "3##########"]
+        },
+        "西班牙": {
+            "code": "+34",
+            "format": ["6## ### ###", "7## ### ###"]
+        },
+        "俄罗斯": {
+            "code": "+7",
+            "format": ["9## ###-##-##", "9##########", "8## ###-##-##"]
+        },
+        "荷兰": {
+            "code": "+31",
+            "format": ["6-####-####", "6########"]
+        },
+        "瑞士": {
+            "code": "+41",
+            "format": ["7# ### ## ##", "7########"]
+        },
+        "瑞典": {
+            "code": "+46",
+            "format": ["7#-### ## ##", "7########"]
+        },
+        "挪威": {
+            "code": "+47",
+            "format": ["4## ## ###", "9## ## ###"]
+        },
+        "丹麦": {
+            "code": "+45",
+            "format": ["## ## ## ##", "########"]
+        },
+        "芬兰": {
+            "code": "+358",
+            "format": ["4# ### ## ##", "4########"]
+        },
+        "比利时": {
+            "code": "+32",
+            "format": ["4## ## ## ##", "4########"]
+        },
+        "奥地利": {
+            "code": "+43",
+            "format": ["6## #######", "6##########"]
+        },
+        "爱尔兰": {
+            "code": "+353",
+            "format": ["8# #######", "8##########"]
+        },
+        "葡萄牙": {
+            "code": "+351",
+            "format": ["9## ### ###", "9########"]
+        },
+        "希腊": {
+            "code": "+30",
+            "format": ["69## ######", "69########"]
+        },
+        "波兰": {
+            "code": "+48",
+            "format": ["### ### ###", "##########"]
+        },
+        "捷克": {
+            "code": "+420",
+            "format": ["### ### ###", "##########"]
+        },
+        "匈牙利": {
+            "code": "+36",
+            "format": ["20/###-####", "30/###-####"]
+        },
+
+        # 北美洲
+        "美国": {
+            "code": "+1",
+            "format": ["###-###-####", "(###) ###-####", "###.###.####"]
+        },
+        "加拿大": {
+            "code": "+1",
+            "format": ["###-###-####", "(###) ###-####", "###.###.####"]
+        },
+        "墨西哥": {
+            "code": "+52",
+            "format": ["1 ## ## ## ####", "1###########"]
+        },
+
+        # 南美洲
+        "巴西": {
+            "code": "+55",
+            "format": ["## 9####-####", "## 8####-####", "## 7####-####"]
+        },
+        "阿根廷": {
+            "code": "+54",
+            "format": ["9 ## ####-####", "11 ####-####"]
+        },
+        "智利": {
+            "code": "+56",
+            "format": ["9 #### ####", "2 #### ####"]
+        },
+        "哥伦比亚": {
+            "code": "+57",
+            "format": ["3## #######", "3##########"]
+        },
+        "秘鲁": {
+            "code": "+51",
+            "format": ["9## ### ###", "9########"]
+        },
+
+        # 非洲
+        "南非": {
+            "code": "+27",
+            "format": ["## ### ####", "##########"]
+        },
+        "埃及": {
+            "code": "+20",
+            "format": ["1## #######", "1##########"]
+        },
+        "尼日利亚": {
+            "code": "+234",
+            "format": ["### ### ####", "###########"]
+        },
+        "肯尼亚": {
+            "code": "+254",
+            "format": ["7## #######", "7##########"]
+        },
+        "摩洛哥": {
+            "code": "+212",
+            "format": ["6-##-##-##-##", "6##########"]
+        },
+
+        # 大洋洲
+        "澳大利亚": {
+            "code": "+61",
+            "format": ["4## ### ###", "4########", "2 #### ####"]
+        },
+        "新西兰": {
+            "code": "+64",
+            "format": ["2# ### ####", "2##########"]
+        },
+
+        # 中东
+        "阿联酋": {
+            "code": "+971",
+            "format": ["5# ### ####", "5##########"]
+        },
+        "沙特阿拉伯": {
+            "code": "+966",
+            "format": ["5# ### ####", "5##########"]
+        },
+        "以色列": {
+            "code": "+972",
+            "format": ["5#-###-####", "5##########"]
+        },
+        "土耳其": {
+            "code": "+90",
+            "format": ["5## ### ####", "5##########"]
+        },
+        "卡塔尔": {
+            "code": "+974",
+            "format": ["3### ####", "5### ####", "7### ####"]
+        }
+    }
+
+    if country not in country_formats:
+        # 默认格式
+        country_info = {
+            "code": "+1",
+            "format": ["###-###-####"]
+        }
+    else:
+        country_info = country_formats[country]
+
+    # 选择一种格式
+    format_pattern = random.choice(country_info["format"])
+
+    # 生成号码
+    phone_number = ""
+    for char in format_pattern:
+        if char == "#":
+            phone_number += str(random.randint(0, 9))
+        else:
+            phone_number += char
+
+    return f"{country_info['code']} {phone_number}"
+
+
+def generate_conditional_address(province=None, selected_city=None, detailed=True):
+    """根据条件生成地址"""
+    if FAKER_AVAILABLE:
+        # Faker生成地址
+        if detailed:
+            address = fake.address()
+        else:
+            # 不生成详细地址，只到城市级别
+            address = f"{fake.province()} {fake.city()}"
+    else:
+        # 备用方案
+        if province == "随机":
+            provinces = ["北京市", "上海市", "广州市", "深圳市", "杭州市", "成都市", "武汉市", "南京市", "西安市"]
+            province = random.choice(provinces)
+            city = province  # 直辖市城市名与省份相同
+
+        if detailed:
+            streets = ["中山路", "解放路", "人民路", "建设路", "和平路", "新华路", "文化路", "胜利路", "团结路", "友谊路"]
+            communities = ["小区", "花园", "大厦", "公寓", "广场", "苑", "居", "湾", "城", "国际"]
+            numbers = [str(i) for i in range(1, 201)]
+            street = random.choice(streets)
+            community = random.choice(communities)
+            number = random.choice(numbers)
+            address = f"{province}{selected_city}{street}{number}号{random.randint(1, 20)}栋{random.randint(1, 30)}单元{random.randint(101, 1500)}室"
+        else:
+            address = f"{province}{selected_city}"
+
+    return address
+
+
+def generate_conditional_id_card(province=None, gender=None, min_age=18, max_age=60):
+    """根据条件生成身份证号码"""
+    if FAKER_AVAILABLE:
+        # Faker生成身份证
+        id_card = fake.ssn()
+
+        # 这里可以添加更复杂的条件验证逻辑
+        # 由于Faker的ssn()已经生成符合规则的身份证，我们主要处理省份和性别条件
+
+        # 简单验证：检查身份证前两位是否符合省份代码
+        province_codes = {
+            "北京市": "11", "天津市": "12", "河北省": "13", "山西省": "14", "内蒙古自治区": "15",
+            "辽宁省": "21", "吉林省": "22", "黑龙江省": "23", "上海市": "31", "江苏省": "32",
+            "浙江省": "33", "安徽省": "34", "福建省": "35", "江西省": "36", "山东省": "37",
+            "河南省": "41", "湖北省": "42", "湖南省": "43", "广东省": "44", "广西壮族自治区": "45",
+            "海南省": "46", "重庆市": "50", "四川省": "51", "贵州省": "52", "云南省": "53",
+            "西藏自治区": "54", "陕西省": "61", "甘肃省": "62", "青海省": "63", "宁夏回族自治区": "64",
+            "新疆维吾尔自治区": "65"
+        }
+
+        if province and province != "随机" and province in province_codes:
+            province_code = province_codes[province]
+            # 如果生成的身份证前两位不匹配指定省份，重新生成（简化处理）
+            if not id_card.startswith(province_code):
+                # 使用传统方法生成符合省份条件的身份证
+                return generate_random_id_card(province, gender or "随机", min_age, max_age)
+
+        return id_card
+    else:
+        # 备用方案
+        return generate_random_id_card(
+            province if province != "随机" else "北京市",
+            gender or "随机",
+            min_age,
+            max_age
+        )
+
+
+def generate_random_email(domain_option, custom_domain, selected_domains):
+    """生成随机邮箱"""
+    username_length = random.randint(5, 12)
+    username = ''.join(random.choice("abcdefghijklmnopqrstuvwxyz0123456789") for _ in range(username_length))
+
+    if domain_option == "自定义域名":
+        domain = custom_domain
+    else:
+        domain = random.choice(selected_domains) if selected_domains else random.choice(["gmail.com", "yahoo.com"])
+
+    return f"{username}@{domain}"
+
+
 # ================ 页面布局 ================
 st.markdown('<div class="main-header">🔧 测试工程师常用工具集</div>', unsafe_allow_html=True)
 
-# 侧边栏导航
 tool_category = st.sidebar.selectbox(
     "选择工具类别",
     ["数据生成工具", "字数统计工具", "文本对比工具", "正则表达式测试工具",
      "JSON数据对比工具", "日志分析工具", "时间处理工具", "IP/域名查询工具"]
 )
 
-# 数据生成工具
+# ================ 使用说明和注意事项 ================
 if tool_category == "数据生成工具":
-    st.markdown('<div class="section-header">数据生成工具</div>', unsafe_allow_html=True)
-    data_gen_tool = st.radio(
-        "选择数据生成工具",
-        ["随机内容生成器", "随机邮箱生成器", "电话号码生成器", "随机地址生成器", "随机身份证生成器"],
+    st.markdown('<div class="section-header">📊 高级数据生成工具</div>', unsafe_allow_html=True)
+
+    # 数据生成工具的使用说明和注意事项
+    with st.expander("📋 使用说明 - 数据生成工具"):
+        st.markdown("""
+        ### 数据生成工具使用说明
+
+        **Faker高级生成器:**
+        - 支持生成真实感强的测试数据，包括个人信息、地址、网络信息等
+        - 选择数据类别和具体类型后，设置生成数量即可
+        - 完整个人信息会生成格式化的简历样式数据
+
+        **基础数据生成器:**
+        - 随机内容生成器：可生成字符串、数字、密码、UUID等
+        - 随机邮箱生成器：支持自定义域名或选择预设域名
+        - 电话号码生成器：支持手机号、座机、国际号码生成
+        - 随机地址生成器：可按省份城市生成详细或简略地址
+        - 随机身份证生成器：生成符合规则的虚拟身份证号码
+        """)
+
+    with st.expander("⚠️ 注意事项 - 数据生成工具"):
+        st.markdown("""
+        ### 重要注意事项
+
+        **数据真实性:**
+        - 所有生成的数据均为虚拟数据，仅用于测试目的
+        - 身份证号码符合格式规则但非真实有效号码
+        - 电话号码为虚拟号码，不能用于实际通信
+
+        **使用限制:**
+        - 批量生成数量限制为1-100条，避免性能问题
+        - Faker库需要单独安装：`pip install faker`
+        - 国际电话号码格式仅供参考，可能因国家而异
+
+        **隐私安全:**
+        - 不要将生成的测试数据用于生产环境
+        - 敏感信息生成后请妥善处理
+        - 避免在公共场合展示生成的个人信息
+        """)
+
+    # 数据生成模式选择
+    gen_mode = st.radio(
+        "选择生成模式",
+        ["Faker高级生成器", "基础数据生成器"],
         horizontal=True
     )
 
-    if data_gen_tool == "随机内容生成器":
-        st.markdown('<div class="tool-card">随机内容生成器</div>', unsafe_allow_html=True)
-        col1, col2 = st.columns(2)
-        with col1:
-            gen_type = st.selectbox("生成类型", ["随机字符串", "随机数字", "随机密码", "UUID"])
-            if gen_type in ["随机字符串", "随机密码"]:
-                length = st.slider("长度", 1, 100, 10)
-            if gen_type == "随机数字":
-                min_val = st.number_input("最小值", value=0)
-                max_val = st.number_input("最大值", value=100)
-            count = st.number_input("生成数量", min_value=1, max_value=100, value=5)
-        with col2:
-            if gen_type == "随机字符串":
-                chars_type = st.multiselect("字符类型", ["小写字母", "大写字母", "数字", "特殊字符"],
-                                            default=["小写字母", "大写字母", "数字"])
-            if gen_type == "随机密码":
-                password_options = st.multiselect("密码选项", ["包含小写字母", "包含大写字母", "包含数字", "包含特殊字符"],
-                                                  default=["包含小写字母", "包含大写字母", "包含数字"])
+    # 在Faker高级生成器部分也需要相应调整显示
+    if gen_mode == "Faker高级生成器":
+        if not FAKER_AVAILABLE:
+            st.error("❌ Faker库未安装，无法使用高级生成器")
+            st.info("请运行以下命令安装: `pip install faker`")
+            st.code("pip install faker", language="bash")
+        else:
+            st.markdown('<div class="tool-card">🚀 Faker高级数据生成器</div>', unsafe_allow_html=True)
 
-        if st.button("生成"):
-            results = []
-            for _ in range(count):
-                if gen_type == "随机字符串":
-                    results.append(generate_random_string(length, chars_type))
-                elif gen_type == "随机数字":
-                    results.append(str(random.randint(min_val, max_val)))
-                elif gen_type == "随机密码":
-                    results.append(generate_random_password(length, password_options))
-                elif gen_type == "UUID":
-                    results.append(str(uuid.uuid4()))
+            # 分类选择
+            categories = {
+                "人物信息": ["随机姓名", "随机姓", "随机名", "男性姓名", "女性姓名", "完整个人信息"],
+                "地址信息": ["随机地址", "随机城市", "随机国家", "随机邮编", "随机街道"],
+                "网络信息": ["随机邮箱", "安全邮箱", "公司邮箱", "免费邮箱", "随机域名", "随机URL", "随机IP地址", "随机用户代理"],
+                "公司信息": ["随机公司名", "公司后缀", "职位"],
+                "金融信息": ["信用卡号", "信用卡提供商", "信用卡有效期", "货币"],
+                "日期时间": ["随机日期时间", "随机日期", "随机时间", "今年日期", "本月日期"],
+                "文本内容": ["随机单词", "随机句子", "随机段落", "随机文本"],
+                "电话号码": ["随机手机号", "号段前缀"],
+                "其他信息": ["随机颜色", "随机UUID", "随机MD5", "随机SHA1", "随机文件扩展名", "随机MIME类型"]
+            }
 
-            st.text_area("生成结果", "\n".join(results), height=150)
-            if st.button("复制结果"):
-                st.success("结果已复制到剪贴板（模拟）")
+            col1, col2, col3 = st.columns([2, 2, 1])
+            with col1:
+                selected_category = st.selectbox("选择数据类别", list(categories.keys()))
+            with col2:
+                selected_subcategory = st.selectbox("选择具体类型", categories[selected_category])
+            with col3:
+                count = st.number_input("生成数量", min_value=1, max_value=100, value=5)
 
-    elif data_gen_tool == "随机邮箱生成器":
-        st.markdown('<div class="tool-card">随机邮箱生成器</div>', unsafe_allow_html=True)
-        col1, col2 = st.columns(2)
-        with col1:
-            count = st.number_input("邮箱数量", min_value=1, max_value=100, value=10)
-            domain_option = st.selectbox("域名选项", ["随机域名", "自定义域名"])
-        with col2:
-            if domain_option == "自定义域名":
-                custom_domain = st.text_input("自定义域名", "example.com")
-            else:
-                domains = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "163.com", "qq.com"]
-                selected_domains = st.multiselect("选择域名", domains, default=domains[:3])
+            # 特殊参数
+            extra_params = {}
+            if selected_subcategory == "随机文本":
+                text_length = st.slider("文本长度", min_value=10, max_value=1000, value=200)
+                extra_params['length'] = text_length
 
-        if st.button("生成邮箱"):
-            results = []
-            for _ in range(count):
-                results.append(generate_random_email(domain_option, custom_domain if domain_option == "自定义域名" else None,
-                                                     selected_domains if domain_option != "自定义域名" else None))
+            if st.button("🎯 生成数据", use_container_width=True):
+                with st.spinner("正在生成数据..."):
+                    results = generate_faker_data(selected_category, selected_subcategory, count, **extra_params)
 
-            st.text_area("生成的邮箱", "\n".join(results), height=150)
-            if st.button("复制邮箱列表"):
-                st.success("邮箱列表已复制到剪贴板（模拟）")
+                # 对于完整个人信息，直接显示格式化结果
+                result_text = "\n".join([str(r) for r in results])
+                st.session_state.faker_result = result_text
+                st.session_state.last_category = f"{selected_category} - {selected_subcategory}"
 
-    elif data_gen_tool == "电话号码生成器":
-        st.markdown('<div class="tool-card">电话号码生成器</div>', unsafe_allow_html=True)
-        col1, col2 = st.columns(2)
-        with col1:
-            operator = st.selectbox("运营商", ["移动", "联通", "电信", "随机"])
-            count = st.number_input("生成数量", min_value=1, max_value=100, value=10)
-        with col2:
-            st.write("号码格式说明：")
-            st.write("- 移动: 139, 138, 137, 136, 135, 134, 159, 158, 157, 150, 151, 152, 147, 188, 187")
-            st.write("- 联通: 130, 131, 132, 155, 156, 185, 186")
-            st.write("- 电信: 133, 153, 180, 189")
+            if 'faker_result' in st.session_state:
+                st.markdown(f'<div class="category-card">📋 生成结果 - {st.session_state.get("last_category", "")}</div>',
+                            unsafe_allow_html=True)
 
-        if st.button("生成电话号码"):
-            results = []
-            for _ in range(count):
-                results.append(generate_random_phone_number(operator))
-
-            st.text_area("生成的电话号码", "\n".join(results), height=150)
-            if st.button("复制电话号码列表"):
-                st.success("电话号码列表已复制到剪贴板（模拟）")
-
-    elif data_gen_tool == "随机地址生成器":
-        st.markdown('<div class="tool-card">随机地址生成器</div>', unsafe_allow_html=True)
-        provinces = {
-            "北京市": ["北京市"],
-            "天津市": ["天津市"],
-            "上海市": ["上海市"],
-            "重庆市": ["重庆市"],
-            "河北省": ["石家庄市", "唐山市", "秦皇岛市", "邯郸市", "邢台市", "保定市", "张家口市", "承德市", "沧州市", "廊坊市", "衡水市"],
-            "山西省": ["太原市", "大同市", "阳泉市", "长治市", "晋城市", "朔州市", "晋中市", "运城市", "忻州市", "临汾市", "吕梁市"],
-            "随机": ["随机"]
-        }
-
-        col1, col2 = st.columns(2)
-        with col1:
-            province = st.selectbox("选择省份", list(provinces.keys()))
-            count = st.number_input("生成数量", min_value=1, max_value=50, value=10)
-        with col2:
-            if province != "随机":
-                city = st.selectbox("选择城市", provinces[province])
-            else:
-                city = "随机"
-
-        if st.button("生成地址"):
-            results = []
-            for _ in range(count):
-                if province == "随机":
-                    random_province = random.choice([p for p in provinces.keys() if p != "随机"])
-                    random_city = random.choice(provinces[random_province])
-                    results.append(generate_random_address(random_province, random_city))
+                # 对于完整个人信息，使用文本区域显示以保持格式
+                if selected_subcategory == "完整个人信息":
+                    st.text_area("生成结果", st.session_state.faker_result, height=300, key="profile_result")
                 else:
-                    if city == "随机":
-                        selected_city = random.choice([c for c in provinces[province] if c != province])
-                    else:
+                    st.markdown(f'<div class="result-box">{st.session_state.faker_result}</div>',
+                                unsafe_allow_html=True)
+
+                col1, col2 = st.columns([1, 4])
+                with col1:
+                    if st.button("📋 复制结果", key="copy_faker"):
+                        if copy_to_clipboard(st.session_state.faker_result):
+                            st.success("✅ 已复制到剪贴板！")
+                        else:
+                            st.info("📥 请手动选择文本复制")
+                with col2:
+                    st.download_button(
+                        label="💾 下载结果",
+                        data=st.session_state.faker_result,
+                        file_name=f"faker_data_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                        mime="text/plain"
+                    )
+
+    else:  # 基础数据生成器
+        st.markdown('<div class="tool-card">🔧 基础数据生成器</div>', unsafe_allow_html=True)
+        data_gen_tool = st.radio(
+            "选择生成工具",
+            ["随机内容生成器", "随机邮箱生成器", "电话号码生成器", "随机地址生成器", "随机身份证生成器"],
+            horizontal=True
+        )
+
+        if data_gen_tool == "随机内容生成器":
+            st.markdown('<div class="category-card">🎲 随机内容生成器</div>', unsafe_allow_html=True)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                # 生成类型选择
+                gen_type = st.selectbox("生成类型", ["随机字符串", "随机数字", "随机密码", "UUID"])
+
+                # 根据类型显示不同参数
+                if gen_type in ["随机字符串", "随机密码"]:
+                    length = st.slider("长度", 1, 100, 10,
+                                       help="生成内容的长度（字符数）")
+                if gen_type == "随机数字":
+                    min_val = st.number_input("最小值", value=0)
+                    max_val = st.number_input("最大值", value=100)
+
+                # 生成数量
+                count = st.number_input("生成数量", min_value=1, max_value=100, value=5)
+
+            with col2:
+                # 字符类型选项
+                if gen_type == "随机字符串":
+                    chars_type = st.multiselect("字符类型",
+                                                ["小写字母", "大写字母", "数字", "特殊字符"],
+                                                default=["小写字母", "大写字母", "数字"],
+                                                help="选择包含的字符类型")
+
+                # 密码选项
+                if gen_type == "随机密码":
+                    password_options = st.multiselect("密码选项",
+                                                      ["包含小写字母", "包含大写字母", "包含数字", "包含特殊字符"],
+                                                      default=["包含小写字母", "包含大写字母", "包含数字"],
+                                                      help="设置密码复杂度要求")
+
+                # 条件说明
+                st.write("📋 条件说明")
+                if gen_type == "随机字符串":
+                    st.write(f"- 类型: 随机字符串")
+                    st.write(f"- 长度: {length}字符")
+                    st.write(f"- 字符类型: {', '.join(chars_type)}")
+                elif gen_type == "随机数字":
+                    st.write(f"- 类型: 随机数字")
+                    st.write(f"- 范围: {min_val} 到 {max_val}")
+                elif gen_type == "随机密码":
+                    st.write(f"- 类型: 随机密码")
+                    st.write(f"- 长度: {length}字符")
+                    st.write(f"- 复杂度: {', '.join(password_options)}")
+                else:
+                    st.write(f"- 类型: UUID")
+
+                st.write("💡 提示: 点击生成按钮后结果将保留在页面")
+
+            if st.button("生成内容", key="gen_random_content"):
+                results = []
+                with st.spinner(f"正在生成{count}个{gen_type}..."):
+                    for _ in range(count):
+                        if gen_type == "随机字符串":
+                            results.append(generate_random_string(length, chars_type))
+                        elif gen_type == "随机数字":
+                            results.append(str(random.randint(min_val, max_val)))
+                        elif gen_type == "随机密码":
+                            results.append(generate_random_password(length, password_options))
+                        elif gen_type == "UUID":
+                            results.append(str(uuid.uuid4()))
+
+                result_text = "\n".join(results)
+                st.session_state.random_content_result = result_text
+                st.session_state.random_content_conditions = (
+                        f"类型: {gen_type}, " +
+                        (f"长度: {length}, " if gen_type in ["随机字符串", "随机密码"] else "") +
+                        (f"范围: {min_val}-{max_val}, " if gen_type == "随机数字" else "") +
+                        (f"字符类型: {', '.join(chars_type)}" if gen_type == "随机字符串" else "") +
+                        (f"复杂度: {', '.join(password_options)}" if gen_type == "随机密码" else "")
+                )
+
+            if 'random_content_result' in st.session_state:
+                st.markdown(
+                    f'<div class="category-card">📋 生成结果 - {st.session_state.get("random_content_conditions", "")}</div>',
+                    unsafe_allow_html=True)
+                st.markdown('<div class="result-box">' + st.session_state.random_content_result + '</div>',
+                            unsafe_allow_html=True)
+
+                col1, col2 = st.columns([1, 4])
+                with col1:
+                    if st.button("复制结果", key="copy_random_content"):
+                        if copy_to_clipboard(st.session_state.random_content_result):
+                            st.success("✅ 已复制到剪贴板！")
+                        else:
+                            st.info("📥 请手动选择文本复制")
+                with col2:
+                    st.download_button(
+                        label="下载结果",
+                        data=st.session_state.random_content_result,
+                        file_name=f"随机内容_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                        mime="text/plain",
+                        key="download_random_content"
+                    )
+
+        elif data_gen_tool == "随机邮箱生成器":
+            st.markdown('<div class="category-card">📧 随机邮箱生成器</div>', unsafe_allow_html=True)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                # 生成数量
+                count = st.number_input("邮箱数量", min_value=1, max_value=100, value=10)
+                # 域名选项
+                domain_option = st.selectbox("域名选项", ["随机域名", "自定义域名"])
+
+            with col2:
+                if domain_option == "自定义域名":
+                    # 自定义域名输入
+                    custom_domain = st.text_input("自定义域名", "example.com",
+                                                  placeholder="输入不带http://的域名")
+                    st.write("📋 条件说明")
+                    st.write(f"- 域名类型: 自定义")
+                    st.write(f"- 域名: {custom_domain}")
+                else:
+                    # 预设域名选择
+                    domains = ["gmail.com", "yahoo.com", "hotmail.com",
+                               "outlook.com", "163.com", "qq.com"]
+                    selected_domains = st.multiselect("选择域名", domains,
+                                                      default=domains[:3])
+                    st.write("📋 条件说明")
+                    st.write(f"- 域名类型: 随机选择")
+                    st.write(f"- 可选域名: {', '.join(selected_domains)}")
+                st.write("💡 提示: 用户名将随机生成8-12位字母数字组合")
+
+            if st.button("生成邮箱", key="gen_emails"):
+                results = []
+                with st.spinner(f"正在生成{count}个邮箱地址..."):
+                    for _ in range(count):
+                        results.append(generate_random_email(
+                            domain_option,
+                            custom_domain if domain_option == "自定义域名" else None,
+                            selected_domains if domain_option != "自定义域名" else None
+                        ))
+
+                result_text = "\n".join(results)
+                st.session_state.email_result = result_text
+                st.session_state.email_conditions = (
+                    f"域名: {custom_domain}" if domain_option == "自定义域名"
+                    else f"随机域名: {', '.join(selected_domains)}"
+                )
+
+            if 'email_result' in st.session_state:
+                st.markdown(
+                    f'<div class="category-card">📋 生成结果 - {st.session_state.get("email_conditions", "")}</div>',
+                    unsafe_allow_html=True)
+                st.markdown('<div class="result-box">' + st.session_state.email_result + '</div>',
+                            unsafe_allow_html=True)
+
+                col1, col2 = st.columns([1, 4])
+                with col1:
+                    if st.button("复制邮箱列表", key="copy_emails"):
+                        if copy_to_clipboard(st.session_state.email_result):
+                            st.success("✅ 已复制到剪贴板！")
+                        else:
+                            st.info("📥 请手动选择文本复制")
+                with col2:
+                    st.download_button(
+                        label="下载邮箱列表",
+                        data=st.session_state.email_result,
+                        file_name=f"邮箱列表_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                        mime="text/plain",
+                        key="download_emails"
+                    )
+
+
+        # 在基础数据生成器部分更新相关工具
+        elif data_gen_tool == "电话号码生成器":
+            st.markdown('<div class="category-card">📞 电话号码生成器</div>', unsafe_allow_html=True)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                # 号码类型选择
+                phone_type = st.selectbox("号码类型", ["手机号", "座机", "国际号码"])
+
+                if phone_type == "国际号码":
+                    # 国家选择
+                    countries = [
+                        "日本", "韩国", "印度", "新加坡", "马来西亚", "泰国", "越南", "菲律宾", "印度尼西亚",
+                        "香港", "台湾", "澳门", "英国", "德国", "法国", "意大利", "西班牙", "俄罗斯", "荷兰",
+                        "瑞士", "瑞典", "挪威", "丹麦", "芬兰", "比利时", "奥地利", "爱尔兰", "葡萄牙", "希腊",
+                        "波兰", "捷克", "匈牙利", "美国", "加拿大", "墨西哥", "巴西", "阿根廷", "智利", "哥伦比亚",
+                        "秘鲁", "南非", "埃及", "尼日利亚", "肯尼亚", "摩洛哥", "澳大利亚", "新西兰", "阿联酋",
+                        "沙特阿拉伯", "以色列", "土耳其", "卡塔尔"
+                    ]
+                    country = st.selectbox("选择国家", countries)
+                elif phone_type == "手机号":
+                    # 运营商选择（仅限国内手机号）
+                    operator = st.selectbox("运营商", ["随机", "移动", "联通", "电信", "广电"])
+                else:  # 座机
+                    operator = st.selectbox("运营商", ["随机", "移动", "联通", "电信", "广电"])
+
+                count = st.number_input("生成数量", min_value=1, max_value=100, value=10)
+
+            with col2:
+                if phone_type == "座机":
+                    # 座机区号选择（可选）
+                    area_code = st.text_input("区号（可选）", placeholder="例如：0592（厦门）")
+                    st.write("📋 条件说明")
+                    st.write(f"- 运营商: {operator}")
+                    st.write(f"- 号码类型: {phone_type}")
+                    st.write(f"- 区号: {area_code if area_code else '随机'}")
+                elif phone_type == "国际号码":
+                    st.write("📋 条件说明")
+                    st.write(f"- 号码类型: {phone_type}")
+                    st.write(f"- 国家: {country}")
+                    st.write("🌍 国际号码格式包含国家代码")
+                else:
+                    st.write("📋 条件说明")
+                    st.write(f"- 运营商: {operator}")
+                    st.write(f"- 号码类型: {phone_type}")
+                st.write("💡 提示: 生成的号码将匹配相应的号码规则")
+
+            if st.button("生成电话号码", key="gen_conditional_phones"):
+                results = []
+                with st.spinner(f"正在生成{count}个号码..."):
+                    for i in range(count):
+                        if phone_type == "座机":
+                            # 生成座机号码（区号可选）
+                            phone = generate_landline_number(operator, area_code if area_code else None)
+                        elif phone_type == "国际号码":
+                            # 生成国际号码
+                            phone = generate_international_phone(country)
+                        else:
+                            # 生成手机号码（仅匹配运营商）
+                            phone = generate_conditional_phone(operator)
+                        results.append(phone)
+
+                result_text = "\n".join(results)
+                st.session_state.phone_result = result_text
+
+                # 更新条件说明
+                if phone_type == "国际号码":
+                    st.session_state.phone_conditions = f"类型: {phone_type}, 国家: {country}"
+                elif phone_type == "座机":
+                    st.session_state.phone_conditions = f"运营商: {operator}, 类型: {phone_type}" + (
+                        f", 区号: {area_code}" if area_code else "")
+                else:
+                    st.session_state.phone_conditions = f"运营商: {operator}, 类型: {phone_type}"
+
+            if 'phone_result' in st.session_state:
+                st.markdown(
+                    f'<div class="category-card">📋 生成结果 - {st.session_state.get("phone_conditions", "")}</div>',
+                    unsafe_allow_html=True)
+                st.markdown('<div class="result-box">' + st.session_state.phone_result + '</div>',
+                            unsafe_allow_html=True)
+
+                col1, col2 = st.columns([1, 4])
+                with col1:
+                    if st.button("复制电话号码", key="copy_phones"):
+                        if copy_to_clipboard(st.session_state.phone_result):
+                            st.success("✅ 已复制到剪贴板！")
+                        else:
+                            st.info("📥 请手动选择文本复制")
+                with col2:
+                    st.download_button(
+                        label="下载电话号码",
+                        data=st.session_state.phone_result,
+                        file_name=f"电话号码_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                        mime="text/plain",
+                        key="download_phones"
+                    )
+
+        elif data_gen_tool == "随机地址生成器":
+            st.markdown('<div class="category-card">🏠 随机地址生成器</div>', unsafe_allow_html=True)
+
+            # 省份城市数据
+            provinces = {
+                "北京市": ["北京市"],
+                "天津市": ["天津市"],
+                "上海市": ["上海市"],
+                "重庆市": ["重庆市"],
+                "河北省": ["石家庄市", "唐山市", "秦皇岛市", "邯郸市", "邢台市", "保定市", "张家口市", "承德市", "沧州市", "廊坊市", "衡水市"],
+                "山西省": ["太原市", "大同市", "阳泉市", "长治市", "晋城市", "朔州市", "晋中市", "运城市", "忻州市", "临汾市", "吕梁市"],
+                "内蒙古自治区": ["呼和浩特市", "包头市", "乌海市", "赤峰市", "通辽市", "鄂尔多斯市", "呼伦贝尔市", "巴彦淖尔市", "乌兰察布市", "兴安盟", "锡林郭勒盟",
+                           "阿拉善盟"],
+                "辽宁省": ["沈阳市", "大连市", "鞍山市", "抚顺市", "本溪市", "丹东市", "锦州市", "营口市", "阜新市", "辽阳市", "盘锦市", "铁岭市", "朝阳市",
+                        "葫芦岛市"],
+                "吉林省": ["长春市", "吉林市", "四平市", "辽源市", "通化市", "白山市", "松原市", "白城市", "延边朝鲜族自治州"],
+                "黑龙江省": ["哈尔滨市", "齐齐哈尔市", "鸡西市", "鹤岗市", "双鸭山市", "大庆市", "伊春市", "佳木斯市", "七台河市", "牡丹江市", "黑河市", "绥化市",
+                         "大兴安岭地区"],
+                "江苏省": ["南京市", "无锡市", "徐州市", "常州市", "苏州市", "南通市", "连云港市", "淮安市", "盐城市", "扬州市", "镇江市", "泰州市", "宿迁市"],
+                "浙江省": ["杭州市", "宁波市", "温州市", "嘉兴市", "湖州市", "绍兴市", "金华市", "衢州市", "舟山市", "台州市", "丽水市"],
+                "安徽省": ["合肥市", "芜湖市", "蚌埠市", "淮南市", "马鞍山市", "淮北市", "铜陵市", "安庆市", "黄山市", "滁州市", "阜阳市", "宿州市", "六安市",
+                        "亳州市", "池州市", "宣城市"],
+                "福建省": ["福州市", "厦门市", "莆田市", "三明市", "泉州市", "漳州市", "南平市", "龙岩市", "宁德市"],
+                "江西省": ["南昌市", "景德镇市", "萍乡市", "九江市", "新余市", "鹰潭市", "赣州市", "吉安市", "宜春市", "抚州市", "上饶市"],
+                "山东省": ["济南市", "青岛市", "淄博市", "枣庄市", "东营市", "烟台市", "潍坊市", "济宁市", "泰安市", "威海市", "日照市", "临沂市", "德州市",
+                        "聊城市", "滨州市", "菏泽市"],
+                "河南省": ["郑州市", "开封市", "洛阳市", "平顶山市", "安阳市", "鹤壁市", "新乡市", "焦作市", "濮阳市", "许昌市", "漯河市", "三门峡市", "南阳市",
+                        "商丘市", "信阳市", "周口市", "驻马店市"],
+                "湖北省": ["武汉市", "黄石市", "十堰市", "宜昌市", "襄阳市", "鄂州市", "荆门市", "孝感市", "荆州市", "黄冈市", "咸宁市", "随州市",
+                        "恩施土家族苗族自治州"],
+                "湖南省": ["长沙市", "株洲市", "湘潭市", "衡阳市", "邵阳市", "岳阳市", "常德市", "张家界市", "益阳市", "郴州市", "永州市", "怀化市", "娄底市",
+                        "湘西土家族苗族自治州"],
+                "广东省": ["广州市", "深圳市", "珠海市", "汕头市", "佛山市", "韶关市", "湛江市", "肇庆市", "江门市", "茂名市", "惠州市", "梅州市", "汕尾市",
+                        "河源市", "阳江市", "清远市", "东莞市", "中山市", "潮州市", "揭阳市", "云浮市"],
+                "广西壮族自治区": ["南宁市", "柳州市", "桂林市", "梧州市", "北海市", "防城港市", "钦州市", "贵港市", "玉林市", "百色市", "贺州市", "河池市", "来宾市",
+                            "崇左市"],
+                "海南省": ["海口市", "三亚市", "三沙市", "儋州市"],
+                "四川省": ["成都市", "自贡市", "攀枝花市", "泸州市", "德阳市", "绵阳市", "广元市", "遂宁市", "内江市", "乐山市", "南充市", "眉山市", "宜宾市",
+                        "广安市", "达州市", "雅安市", "巴中市", "资阳市", "阿坝藏族羌族自治州", "甘孜藏族自治州", "凉山彝族自治州"],
+                "贵州省": ["贵阳市", "六盘水市", "遵义市", "安顺市", "毕节市", "铜仁市", "黔西南布依族苗族自治州", "黔东南苗族侗族自治州", "黔南布依族苗族自治州"],
+                "云南省": ["昆明市", "曲靖市", "玉溪市", "保山市", "昭通市", "丽江市", "普洱市", "临沧市", "楚雄彝族自治州", "红河哈尼族彝族自治州", "文山壮族苗族自治州",
+                        "西双版纳傣族自治州", "大理白族自治州", "德宏傣族景颇族自治州", "怒江傈僳族自治州", "迪庆藏族自治州"],
+                "西藏自治区": ["拉萨市", "日喀则市", "昌都市", "林芝市", "山南市", "那曲市", "阿里地区"],
+                "陕西省": ["西安市", "铜川市", "宝鸡市", "咸阳市", "渭南市", "延安市", "汉中市", "榆林市", "安康市", "商洛市"],
+                "甘肃省": ["兰州市", "嘉峪关市", "金昌市", "白银市", "天水市", "武威市", "张掖市", "平凉市", "酒泉市", "庆阳市", "定西市", "陇南市", "临夏回族自治州",
+                        "甘南藏族自治州"],
+                "青海省": ["西宁市", "海东市", "海北藏族自治州", "黄南藏族自治州", "海南藏族自治州", "果洛藏族自治州", "玉树藏族自治州", "海西蒙古族藏族自治州"],
+                "宁夏回族自治区": ["银川市", "石嘴山市", "吴忠市", "固原市", "中卫市"],
+                "新疆维吾尔自治区": ["乌鲁木齐市", "克拉玛依市", "吐鲁番市", "哈密市", "昌吉回族自治州", "博尔塔拉蒙古自治州", "巴音郭楞蒙古自治州", "阿克苏地区",
+                             "克孜勒苏柯尔克孜自治州", "喀什地区", "和田地区", "伊犁哈萨克自治州", "塔城地区", "阿勒泰地区"],
+                "台湾省": ["台北市", "新北市", "桃园市", "台中市", "台南市", "高雄市"],
+                "香港特别行政区": ["香港岛", "九龙", "新界"],
+                "澳门特别行政区": ["澳门半岛", "氹仔", "路环"],
+                "随机": ["随机"]
+            }
+
+            col1, col2 = st.columns(2)
+            with col1:
+                # 省份选择
+                province = st.selectbox("选择省份", ["随机"] + [p for p in provinces.keys() if p != "随机"])
+                # 生成数量
+                count = st.number_input("生成数量", min_value=1, max_value=50, value=10)
+                # 详细地址开关
+                detailed = st.checkbox("生成详细地址", value=True)
+
+            with col2:
+                # 城市选择（根据省份动态更新）
+                if province != "随机":
+                    city_options = provinces[province]
+                    city = st.selectbox("选择城市", ["随机"] + [c for c in city_options if c != province])
+                else:
+                    city = "随机"
+
+                # 条件说明
+                st.write("📋 条件说明")
+                st.write(f"- 省份: {province if province != '随机' else '随机选择'}")
+                st.write(f"- 城市: {city if city != '随机' else '随机选择'}")
+                st.write(f"- 详细程度: {'详细地址' if detailed else '仅省市信息'}")
+                st.write("💡 提示: 详细地址包含街道、门牌号等信息")
+
+            if st.button("生成地址", key="gen_addresses"):
+                results = []
+                with st.spinner(f"正在生成{count}个地址..."):
+                    for _ in range(count):
+                        # 处理省份选择
+                        selected_province = province
+                        if province == "随机":
+                            selected_province = random.choice([p for p in provinces.keys() if p != "随机"])
+
+                        # 处理城市选择
                         selected_city = city
-                    results.append(generate_random_address(province, selected_city))
+                        if city == "随机":
+                            if selected_province in provinces:
+                                city_options = [c for c in provinces[selected_province] if c != selected_province]
+                                selected_city = random.choice(city_options) if city_options else selected_province
 
-            st.text_area("生成的地址", "\n".join(results), height=150)
-            if st.button("复制地址列表"):
-                st.success("地址列表已复制到剪贴板（模拟）")
+                        results.append(generate_random_address(selected_province, selected_city, detailed))
 
-    elif data_gen_tool == "随机身份证生成器":
-        st.markdown('<div class="tool-card">随机身份证生成器</div>', unsafe_allow_html=True)
-        col1, col2 = st.columns(2)
-        with col1:
-            province = st.selectbox("选择省份", ["随机"] + list({
-                                                              "北京市": "11", "天津市": "12", "河北省": "13", "山西省": "14",
-                                                              "内蒙古自治区": "15",
-                                                              "辽宁省": "21", "吉林省": "22", "黑龙江省": "23", "上海市": "31",
-                                                              "江苏省": "32",
-                                                              "浙江省": "33", "安徽省": "34", "福建省": "35", "江西省": "36",
-                                                              "山东省": "37",
-                                                              "河南省": "41", "湖北省": "42", "湖南省": "43", "广东省": "44",
-                                                              "广西壮族自治区": "45",
-                                                              "海南省": "46", "重庆市": "50", "四川省": "51", "贵州省": "52",
-                                                              "云南省": "53",
-                                                              "西藏自治区": "54", "陕西省": "61", "甘肃省": "62", "青海省": "63",
-                                                              "宁夏回族自治区": "64",
-                                                              "新疆维吾尔自治区": "65"
-                                                          }.keys()))
-            gender = st.selectbox("选择性别", ["随机", "男", "女"])
-            count = st.number_input("生成数量", min_value=1, max_value=50, value=10)
-        with col2:
-            min_age = st.number_input("最小年龄", min_value=0, max_value=100, value=18)
-            max_age = st.number_input("最大年龄", min_value=0, max_value=100, value=60)
-            if min_age > max_age:
-                st.error("最小年龄不能大于最大年龄")
+                result_text = "\n".join(results)
+                st.session_state.address_result = result_text
+                st.session_state.address_conditions = (
+                        f"省份: {selected_province}, " +
+                        f"城市: {selected_city}, " +
+                        f"详细程度: {'详细地址' if detailed else '仅省市信息'}"
+                )
 
-        if st.button("生成身份证"):
-            results = []
-            for _ in range(count):
-                results.append(generate_random_id_card(
-                    province if province != "随机" else random.choice(list({
-                                                                             "北京市": "11", "天津市": "12", "河北省": "13",
-                                                                             "山西省": "14", "内蒙古自治区": "15",
-                                                                             "辽宁省": "21", "吉林省": "22", "黑龙江省": "23",
-                                                                             "上海市": "31", "江苏省": "32",
-                                                                             "浙江省": "33", "安徽省": "34", "福建省": "35",
-                                                                             "江西省": "36", "山东省": "37",
-                                                                             "河南省": "41", "湖北省": "42", "湖南省": "43",
-                                                                             "广东省": "44", "广西壮族自治区": "45",
-                                                                             "海南省": "46", "重庆市": "50", "四川省": "51",
-                                                                             "贵州省": "52", "云南省": "53",
-                                                                             "西藏自治区": "54", "陕西省": "61", "甘肃省": "62",
-                                                                             "青海省": "63", "宁夏回族自治区": "64",
-                                                                             "新疆维吾尔自治区": "65"
-                                                                         }.keys())),
-                    gender,
-                    min_age,
-                    max_age
-                ))
+            if 'address_result' in st.session_state:
+                st.markdown(
+                    f'<div class="category-card">📋 生成结果 - {st.session_state.get("address_conditions", "")}</div>',
+                    unsafe_allow_html=True)
+                st.markdown('<div class="result-box">' + st.session_state.address_result + '</div>',
+                            unsafe_allow_html=True)
 
-            st.text_area("生成的身份证号", "\n".join(results), height=150)
-            if st.button("复制身份证列表"):
-                st.success("身份证列表已复制到剪贴板（模拟）")
+                col1, col2 = st.columns([1, 4])
+                with col1:
+                    if st.button("复制地址", key="copy_addresses"):
+                        if copy_to_clipboard(st.session_state.address_result):
+                            st.success("✅ 已复制到剪贴板！")
+                        else:
+                            st.info("📥 请手动选择文本复制")
+                with col2:
+                    st.download_button(
+                        label="下载地址列表",
+                        data=st.session_state.address_result,
+                        file_name=f"地址列表_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                        mime="text/plain",
+                        key="download_addresses"
+                    )
+
+        elif data_gen_tool == "随机身份证生成器":
+            st.markdown('<div class="category-card">🆔 随机身份证生成器</div>', unsafe_allow_html=True)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                # 省份选择
+                province = st.selectbox("选择省份", ["随机"] + list({
+                                                                  "北京市": "11", "天津市": "12", "河北省": "13", "山西省": "14",
+                                                                  "内蒙古自治区": "15",
+                                                                  "辽宁省": "21", "吉林省": "22", "黑龙江省": "23", "上海市": "31",
+                                                                  "江苏省": "32",
+                                                                  "浙江省": "33", "安徽省": "34", "福建省": "35", "江西省": "36",
+                                                                  "山东省": "37",
+                                                                  "河南省": "41", "湖北省": "42", "湖南省": "43", "广东省": "44",
+                                                                  "广西壮族自治区": "45",
+                                                                  "海南省": "46", "重庆市": "50", "四川省": "51", "贵州省": "52",
+                                                                  "云南省": "53",
+                                                                  "西藏自治区": "54", "陕西省": "61", "甘肃省": "62", "青海省": "63",
+                                                                  "宁夏回族自治区": "64",
+                                                                  "新疆维吾尔自治区": "65"
+                                                              }.keys()))
+
+                # 性别选择
+                gender = st.selectbox("选择性别", ["随机", "男", "女"])
+                count = st.number_input("生成数量", min_value=1, max_value=100, value=10)
+
+            with col2:
+                # 年龄范围选择
+                min_age = st.number_input("最小年龄", min_value=0, max_value=100, value=18)
+                max_age = st.number_input("最大年龄", min_value=0, max_value=100, value=60)
+                if min_age > max_age:
+                    st.error("最小年龄不能大于最大年龄")
+
+                st.write("📋 条件说明")
+                st.write(f"- 省份: {province}")
+                st.write(f"- 性别: {gender}")
+                st.write(f"- 年龄范围: {min_age}-{max_age}岁")
+                st.write("💡 提示: 生成的身份证将严格符合选择的省份、性别和年龄条件")
+
+            if st.button("生成身份证", key="gen_id_cards"):
+                results = []
+                with st.spinner(f"正在生成{count}个身份证号码..."):
+                    for i in range(count):
+                        results.append(generate_random_id_card(
+                            province if province != "随机" else random.choice(list({
+                                                                                     "北京市": "11", "天津市": "12",
+                                                                                     "河北省": "13", "山西省": "14",
+                                                                                     "内蒙古自治区": "15",
+                                                                                     "辽宁省": "21", "吉林省": "22",
+                                                                                     "黑龙江省": "23", "上海市": "31",
+                                                                                     "江苏省": "32",
+                                                                                     "浙江省": "33", "安徽省": "34",
+                                                                                     "福建省": "35", "江西省": "36",
+                                                                                     "山东省": "37",
+                                                                                     "河南省": "41", "湖北省": "42",
+                                                                                     "湖南省": "43", "广东省": "44",
+                                                                                     "广西壮族自治区": "45",
+                                                                                     "海南省": "46", "重庆市": "50",
+                                                                                     "四川省": "51", "贵州省": "52",
+                                                                                     "云南省": "53",
+                                                                                     "西藏自治区": "54", "陕西省": "61",
+                                                                                     "甘肃省": "62", "青海省": "63",
+                                                                                     "宁夏回族自治区": "64",
+                                                                                     "新疆维吾尔自治区": "65"
+                                                                                 }.keys())),
+                            gender,
+                            min_age,
+                            max_age
+                        ))
+
+                result_text = "\n".join(results)
+                st.session_state.id_card_result = result_text
+                st.session_state.id_card_conditions = f"省份: {province}, 性别: {gender}, 年龄: {min_age}-{max_age}岁"
+
+            if 'id_card_result' in st.session_state:
+                st.markdown(
+                    f'<div class="category-card">📋 生成结果 - {st.session_state.get("id_card_conditions", "")}</div>',
+                    unsafe_allow_html=True)
+                st.markdown('<div class="result-box">' + st.session_state.id_card_result + '</div>',
+                            unsafe_allow_html=True)
+
+                col1, col2 = st.columns([1, 4])
+                with col1:
+                    if st.button("复制身份证号", key="copy_id_cards"):
+                        if copy_to_clipboard(st.session_state.id_card_result):
+                            st.success("✅ 已复制到剪贴板！")
+                        else:
+                            st.info("📥 请手动选择文本复制")
+                with col2:
+                    st.download_button(
+                        label="下载身份证号",
+                        data=st.session_state.id_card_result,
+                        file_name=f"身份证列表_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                        mime="text/plain",
+                        key="download_id_cards"
+                    )
 
 # 字数统计工具
 elif tool_category == "字数统计工具":
-    st.markdown('<div class="section-header">字数统计工具</div>', unsafe_allow_html=True)
-    st.markdown('<div class="tool-card">字数统计工具</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📝 字数统计工具</div>', unsafe_allow_html=True)
+
+    with st.expander("📋 使用说明 - 字数统计工具"):
+        st.markdown("""
+        ### 字数统计工具使用说明
+
+        **功能特点:**
+        - 实时统计输入文本的各类字数信息
+        - 支持字符数（含空格和不含空格）统计
+        - 自动计算单词数、行数和段落数
+        - 显示最常见字符的使用频率
+
+        **统计规则:**
+        - 字符数：包括所有可见和不可见字符
+        - 单词数：按空格分隔的单词为单位
+        - 行数：按换行符分隔
+        - 段落数：按连续换行符分隔的文本块
+        """)
+
+    with st.expander("⚠️ 注意事项 - 字数统计工具"):
+        st.markdown("""
+        ### 重要注意事项
+
+        **统计精度:**
+        - 单词统计基于空格分隔，中文文本可能不准确
+        - 特殊字符和标点符号计入字符统计
+        - 空行会计入行数但不计入段落数
+
+        **性能考虑:**
+        - 超大文本（超过10万字符）可能影响响应速度
+        - 建议分段处理超长文本
+        - 统计结果会实时更新，输入时请注意
+        """)
 
     text_input = st.text_area("输入要统计的文本", height=200, placeholder="在此处输入或粘贴文本...")
 
@@ -800,8 +1906,38 @@ elif tool_category == "字数统计工具":
 
 # 文本对比工具
 elif tool_category == "文本对比工具":
-    st.markdown('<div class="section-header">文本对比工具</div>', unsafe_allow_html=True)
-    st.markdown('<div class="tool-card">文本对比工具</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🔍 文本对比工具</div>', unsafe_allow_html=True)
+
+    with st.expander("📋 使用说明 - 文本对比工具"):
+        st.markdown("""
+        ### 文本对比工具使用说明
+
+        **对比功能:**
+        - 并排显示两个文本内容，方便直观对比
+        - 使用颜色标识差异：绿色表示新增，红色表示删除
+        - 支持大文本文件的对比分析
+
+        **操作流程:**
+        1. 在左侧输入原始文本
+        2. 在右侧输入对比文本
+        3. 点击"开始对比"查看差异
+        4. 使用"清空所有内容"重置界面
+        """)
+
+    with st.expander("⚠️ 注意事项 - 文本对比工具"):
+        st.markdown("""
+        ### 重要注意事项
+
+        **对比规则:**
+        - 基于行级别的差异对比
+        - 空格和换行符的差异也会被检测
+        - 颜色标识：绿色=新增，红色=删除，黄色=修改
+
+        **使用限制:**
+        - 超大文件对比可能较慢，建议分段处理
+        - 特殊字符编码可能影响对比结果
+        - 对比结果仅供参考，需要人工确认重要差异
+        """)
 
     if 'text1_content' not in st.session_state:
         st.session_state.text1_content = ""
@@ -848,8 +1984,43 @@ elif tool_category == "文本对比工具":
 
 # 正则表达式测试工具
 elif tool_category == "正则表达式测试工具":
-    st.markdown('<div class="section-header">正则表达式测试工具</div>', unsafe_allow_html=True)
-    st.markdown('<div class="tool-card">正则表达式测试工具</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">⚡ 正则表达式测试工具</div>', unsafe_allow_html=True)
+
+    with st.expander("📋 使用说明 - 正则表达式测试工具"):
+        st.markdown("""
+        ### 正则表达式测试工具使用说明
+
+        **核心功能:**
+        - 实时测试正则表达式的匹配效果
+        - 支持多种匹配模式：全局、忽略大小写、多行
+        - 提供替换功能，测试替换效果
+        - 显示详细的匹配结果和分组信息
+
+        **匹配选项说明:**
+        - 全局匹配(g)：查找所有匹配项而不仅是第一个
+        - 忽略大小写(i)：不区分字母大小写
+        - 多行模式(m)：^和$匹配每行的开始和结束
+        """)
+
+    with st.expander("⚠️ 注意事项 - 正则表达式测试工具"):
+        st.markdown("""
+        ### 重要注意事项
+
+        **语法安全:**
+        - 避免使用可能引起性能问题的复杂正则
+        - 注意特殊字符的转义处理
+        - 测试前建议先在小型数据集验证
+
+        **性能警告:**
+        - 回溯灾难性正则表达式可能导致浏览器卡顿
+        - 超大文本匹配可能影响页面响应
+        - 建议逐步构建复杂正则表达式
+
+        **功能限制:**
+        - 部分高级正则特性可能不支持
+        - 替换功能为简单文本替换，不支持回调函数
+        - 匹配数量过多时可能只显示部分结果
+        """)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -898,8 +2069,44 @@ elif tool_category == "正则表达式测试工具":
 
 # JSON数据对比工具
 elif tool_category == "JSON数据对比工具":
-    st.markdown('<div class="section-header">JSON数据对比工具</div>', unsafe_allow_html=True)
-    st.markdown('<div class="tool-card">JSON数据对比工具</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📊 JSON数据对比工具</div>', unsafe_allow_html=True)
+
+    with st.expander("📋 使用说明 - JSON数据对比工具"):
+        st.markdown("""
+        ### JSON数据对比工具使用说明
+
+        **主要功能:**
+        - 并排显示两个JSON数据，支持格式化查看
+        - 深度对比JSON结构差异
+        - 统计键数量差异和具体差异点
+        - 支持大JSON文件的对比分析
+
+        **对比维度:**
+        - 键的存在性：检查缺失或多余的键
+        - 值的一致性：对比对应键的值差异
+        - 类型匹配：验证数据类型是否一致
+        - 结构完整性：检查数组长度和嵌套结构
+        """)
+
+    with st.expander("⚠️ 注意事项 - JSON数据对比工具"):
+        st.markdown("""
+        ### 重要注意事项
+
+        **数据格式:**
+        - 确保输入的JSON格式正确有效
+        - 支持标准JSON格式，不支持JSON5等扩展格式
+        - 格式化功能会自动修复简单的格式错误
+
+        **对比限制:**
+        - 超大JSON文件（超过1MB）可能影响性能
+        - 深度嵌套结构可能显示不完整
+        - 数组顺序差异会被识别为内容差异
+
+        **结果解读:**
+        - 差异报告仅供参考，需要人工确认重要性
+        - 某些差异可能是正常的业务逻辑变化
+        - 建议结合具体业务场景分析差异
+        """)
 
     if 'json1_content' not in st.session_state:
         st.session_state.json1_content = '{"name": "John", "age": 30}'
@@ -995,8 +2202,44 @@ elif tool_category == "JSON数据对比工具":
 
 # 日志分析工具
 elif tool_category == "日志分析工具":
-    st.markdown('<div class="section-header">日志分析工具</div>', unsafe_allow_html=True)
-    st.markdown('<div class="tool-card">日志分析工具</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📋 日志分析工具</div>', unsafe_allow_html=True)
+
+    with st.expander("📋 使用说明 - 日志分析工具"):
+        st.markdown("""
+        ### 日志分析工具使用说明
+
+        **分析功能:**
+        - 支持文件上传和直接粘贴两种日志导入方式
+        - 自动统计日志级别分布（ERROR、WARN、INFO等）
+        - 可视化展示日志级别比例和数量
+        - 提供强大的日志过滤和搜索功能
+
+        **过滤选项:**
+        - 按日志级别过滤：支持多选级别类型
+        - 关键词搜索：支持普通搜索和正则表达式
+        - 大小写敏感：精确匹配关键词
+        - 实时过滤：立即显示过滤结果
+        """)
+
+    with st.expander("⚠️ 注意事项 - 日志分析工具"):
+        st.markdown("""
+        ### 重要注意事项
+
+        **文件支持:**
+        - 支持.txt和.log格式的日志文件
+        - 文件编码建议使用UTF-8
+        - 超大日志文件可能需要较长时间处理
+
+        **分析精度:**
+        - 日志级别识别基于关键词匹配，可能不准确
+        - 复杂格式的日志可能需要自定义解析规则
+        - 时间戳格式识别能力有限
+
+        **性能考虑:**
+        - 超过10万行的日志文件建议分段分析
+        - 复杂正则表达式搜索可能影响性能
+        - 实时过滤功能在大型日志上可能较慢
+        """)
 
     import_method = st.radio("日志导入方式", ["文件上传", "直接粘贴"])
     log_content = ""
@@ -1082,7 +2325,53 @@ elif tool_category == "日志分析工具":
 
 # 时间处理工具
 elif tool_category == "时间处理工具":
-    st.markdown('<div class="section-header">时间处理工具</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">⏰ 时间处理工具</div>', unsafe_allow_html=True)
+
+    with st.expander("📋 使用说明 - 时间处理工具"):
+        st.markdown("""
+        ### 时间处理工具使用说明
+
+        **工具分类:**
+        - **时间戳转换**: 时间戳与日期时间互相转换
+        - **时间换算工具**: 不同时间单位之间的换算
+        - **日期计算器**: 日期加减和间隔计算
+
+        **时间戳转换:**
+        - 支持秒级和毫秒级时间戳
+        - 自动识别时间戳类型
+        - 实时获取当前时间戳
+
+        **时间换算:**
+        - 支持常见时间单位换算
+        - 提供精确到6位小数的结果
+        - 内置常用时间换算表参考
+
+        **日期计算:**
+        - 支持工作日和自然日计算
+        - 考虑月份天数差异和闰年情况
+        - 提供详细的间隔分析
+        """)
+
+    with st.expander("⚠️ 注意事项 - 时间处理工具"):
+        st.markdown("""
+        ### 重要注意事项
+
+        **时间戳精度:**
+        - 时间戳转换精度到秒级
+        - 毫秒级时间戳需要手动选择类型
+        - 时区基于系统当前时区设置
+
+        **日期计算规则:**
+        - 工作日计算排除周六周日
+        - 月份计算按实际天数，非固定30天
+        - 闰年自动识别和处理
+
+        **使用限制:**
+        - 不支持公元前日期计算
+        - 极早或极晚的日期可能计算不准确
+        - 时区转换功能有限，建议使用UTC时间
+        """)
+
     time_tool = st.radio(
         "选择时间处理工具",
         ["时间戳转换", "时间换算工具", "日期计算器"],
@@ -1224,8 +2513,51 @@ elif tool_category == "时间处理工具":
 
 # IP/域名查询工具
 elif tool_category == "IP/域名查询工具":
-    st.markdown('<div class="section-header">IP/域名查询工具</div>', unsafe_allow_html=True)
-    st.markdown('<div class="tool-card">IP/域名查询工具 - 多功能网络查询平台</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🌐 IP/域名查询工具</div>', unsafe_allow_html=True)
+
+    with st.expander("📋 使用说明 - IP/域名查询工具"):
+        st.markdown("""
+        ### IP/域名查询工具使用说明
+
+        **查询功能分类:**
+        - **基本信息查询**: IP/域名归属地、运营商等信息
+        - **子域名查询**: 查找主域名下的所有子域名
+        - **备案信息查询**: 查询网站备案信息（中国大陆）
+        - **批量查询工具**: 批量处理多个IP/域名查询
+        - **IPv4转换工具**: IP地址各种格式转换
+        - **旁站查询**: 查找同一服务器上的其他网站
+        - **IP反查网站**: 通过IP查找使用该IP的网站
+
+        **数据来源:**
+        - 结合本地数据库和公开API查询
+        - 归属地信息具体到城市级别
+        - 运营商信息基于IP段数据库
+        """)
+
+    with st.expander("⚠️ 注意事项 - IP/域名查询工具"):
+        st.markdown("""
+        ### 重要注意事项
+
+        **数据准确性:**
+        - 查询结果仅供参考，不保证100%准确
+        - IP归属地可能因运营商策略而变化
+        - 域名备案信息为模拟数据，实际以官方为准
+
+        **查询限制:**
+        - 批量查询有速率限制，避免频繁请求
+        - 某些查询功能需要网络连接
+        - 国际IP地址信息可能不完整
+
+        **隐私保护:**
+        - 查询记录不会保存到服务器
+        - 敏感IP地址查询请谨慎操作
+        - 遵守当地网络安全法律法规
+
+        **功能说明:**
+        - 部分高级查询功能为演示用途
+        - 实际网络环境可能影响查询结果
+        - 建议结合多个查询工具验证结果
+        """)
 
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
         ["IP/域名查询", "子域名查询", "备案信息查询", "批量查询", "IPv4转换工具", "旁站查询", "IP反查网站"])
@@ -1655,16 +2987,21 @@ elif tool_category == "IP/域名查询工具":
 
         with st.expander("转换示例"):
             st.markdown("""
-            **十进制 ↔ 点分十进制**
-            - 8.8.8.8 → 134744072
-            - 134744072 → 8.8.8.8
+            十进制 ↔ 点分十进制
+            ▪ 8.8.8.8 → 134744072
 
-            **点分十进制 ↔ 十六进制**
-            - 8.8.8.8 → 0x8080808
-            - 0x8080808 → 8.8.8.8
+            ▪ 134744072 → 8.8.8.8
 
-            **点分十进制 ↔ 二进制**
-            - 8.8.8.8 → 00001000.00001000.00001000.00001000
+
+            点分十进制 ↔ 十六进制
+            ▪ 8.8.8.8 → 0x8080808
+
+            ▪ 0x8080808 → 8.8.8.8
+
+
+            点分十进制 ↔ 二进制
+            ▪ 8.8.8.8 → 00001000.00001000.00001000.00001000
+
             """)
 
     with tab6:
@@ -1730,23 +3067,68 @@ elif tool_category == "IP/域名查询工具":
                 else:
                     st.error(f"反查失败: {result['error']}")
 
-# 页脚
+# ================ 通用使用说明和注意事项 ================
 st.markdown("---")
-st.markdown("### 使用说明")
-st.markdown("""
-1. **批量操作**: 大部分生成工具支持批量生成，可以一次性生成多条数据
-2. **复制功能**: 所有结果都支持一键复制，方便在其他地方使用
-3. **实时更新**: 文本统计等功能支持实时更新，输入即可看到结果
-4. **格式验证**: JSON对比工具会自动验证JSON格式的正确性
-5. **多种选项**: 大部分工具提供多种配置选项，可根据需要调整
-""")
+st.markdown("### 🎯 通用使用说明")
 
-st.markdown("### 注意事项")
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown("""
+    **🔧 工具选择**
+    - 左侧边栏选择需要的工具类别
+    - 每个工具都有详细的功能说明
+    - 支持工具内的多标签页切换
+
+    **📊 数据操作**
+    - 大部分工具支持批量操作
+    - 生成结果支持一键复制和下载
+    - 实时预览和即时反馈
+
+    **🛠️ 高级功能**
+    - Faker库提供真实感数据生成
+    - 正则表达式测试支持多种模式
+    - JSON深度对比和格式化
+    """)
+
+with col2:
+    st.markdown("""
+    **📁 文件支持**
+    - 支持文本文件上传和分析
+    - 多种格式导出生成结果
+    - 大文件分段处理建议
+
+    **⚡ 性能优化**
+    - 大型数据集的渐进式处理
+    - 内存使用优化和清理
+    - 响应式界面设计
+
+    **🔒 安全隐私**
+    - 本地处理，数据不上传服务器
+    - 敏感信息自动清理
+    - 安全的测试数据生成
+    """)
+
+st.markdown("### ⚠️ 通用注意事项")
+
 st.markdown("""
-1. 生成的测试数据仅用于测试目的，不应用于生产环境
-2. 身份证号码生成器生成的号码符合格式规则但非真实身份证
-3. 正则表达式测试时注意转义字符的使用
-4. JSON对比前请确保数据格式正确
-5. 时间戳转换支持秒和毫秒，注意区分
-6. IP/域名查询结果仅供参考，数据来源于第三方网站
+**🛡️ 安全警告**
+- 生成的测试数据严禁用于生产环境
+- 敏感操作前请确认数据备份
+- 遵守数据隐私保护法律法规
+
+**📏 使用限制**
+- 单次处理数据量建议在合理范围内
+- 复杂操作可能需要较长时间
+- 某些功能需要额外的依赖库支持
+
+**🔧 技术说明**
+- 部分功能需要网络连接
+- 浏览器兼容性：推荐Chrome/Firefox
+- 移动端体验可能有限
+
+**📞 问题反馈**
+- 功能问题请检查使用说明
+- 性能问题尝试减少数据量
+- 复杂需求考虑使用专业工具
 """)

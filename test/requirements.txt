@@ -6,4 +6,5 @@ beautifulsoup4==4.12.2
 matplotlib==3.8.2
 seaborn==0.13.0
 python-dateutil==2.8.2
-uuid==1.30
+faker==24.9.0
+pyperclip==1.8.2
