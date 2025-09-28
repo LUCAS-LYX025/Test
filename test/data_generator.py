@@ -1,6 +1,7 @@
 import random
 import datetime
 from typing import List, Union, Dict, Any
+import streamlit as st
 
 
 class DataGenerator:
@@ -24,6 +25,14 @@ class DataGenerator:
         except ImportError:
             self.faker_available = False
             print("Faker库未安装，部分高级功能将受限。请运行: pip install faker")
+
+    def safe_generate(self, generator_func, *args, **kwargs):
+        """安全执行生成函数"""
+        try:
+            return generator_func(*args, **kwargs)
+        except Exception as e:
+            st.error(f"生成过程中发生错误：{e}")
+            return None
 
     def format_profile_data(self, profile_dict: Union[Dict, str]) -> str:
         """格式化完整个人信息显示
