@@ -20,6 +20,9 @@ from collections import Counter
 import datetime
 import uuid
 import random
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # 导入Faker库
 try:
