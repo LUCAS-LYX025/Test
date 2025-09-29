@@ -13,7 +13,7 @@ from doc_manager import show_doc, show_general_guidelines
 from ip_query_tool import IPQueryTool
 from data_generator import DataGenerator
 from data_constants import PROVINCES, COUNTRIES, CATEGORIES, PROVINCE_MAP, TO_SECONDS, RANDOM_STRING_TYPES, \
-    PASSWORD_OPTIONS, DOMAINS_PRESET, PHONE_TYPES, GENDERS
+    PASSWORD_OPTIONS, DOMAINS_PRESET, PHONE_TYPES, GENDERS, TOOL_CATEGoRIES, CSS_STYLES, HEADLINE_STYLES
 from datetime_utils import DateTimeUtils
 from json_file_utils import JSONFileUtils
 from collections import Counter
@@ -39,107 +39,33 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 自定义CSS样式
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 2.5rem;
-        color: #1f77b4;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .section-header {
-        font-size: 1.8rem;
-        color: #1f77b4;
-        border-bottom: 2px solid #1f77b4;
-        padding-bottom: 0.5rem;
-        margin-top: 2rem;
-    }
-    .tool-card {
-        background-color: #f0f2f6;
-        padding: 1.5rem;
-        border-radius: 0.5rem;
-        margin-bottom: 1rem;
-        border-left: 4px solid #1f77b4;
-    }
-    .category-card {
-        background-color: #ffffff;
-        border: 1px solid #e0e0e0;
-        border-radius: 0.5rem;
-        padding: 1rem;
-        margin: 0.5rem 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .copy-btn {
-        background-color: #1f77b4;
-        color: white;
-        border: none;
-        padding: 0.5rem 1.5rem;
-        border-radius: 0.25rem;
-        cursor: pointer;
-        font-size: 0.9rem;
-        transition: all 0.3s ease;
-        margin: 5px;
-    }
-    .copy-btn:hover {
-        background-color: #1668a5;
-    }
-    .copy-success {
-        background-color: #28a745 !important;
-    }
-    .result-box {
-        background-color: #f8f9fa;
-        border: 1px solid #e9ecef;
-        border-radius: 0.25rem;
-        padding: 1rem;
-        margin: 0.5rem 0;
-        font-family: 'Courier New', monospace;
-        white-space: pre-wrap;
-        max-height: 400px;
-        overflow-y: auto;
-    }
-    .faker-badge {
-        background-color: #ff6b6b;
-        color: white;
-        padding: 0.2rem 0.5rem;
-        border-radius: 0.25rem;
-        font-size: 0.7rem;
-        margin-left: 0.5rem;
-    }
-</style>
-""", unsafe_allow_html=True)
+# 现代化CSS样式
+st.markdown(CSS_STYLES, unsafe_allow_html=True)
 
 
 # ================ 辅助函数 ================
 def escape_js_string(text):
     """安全转义 JavaScript 字符串"""
-    # 将文本转换为 JSON 字符串，这会自动处理所有特殊字符
     return json.dumps(text)
 
 
 def create_copy_button(text, button_text="📋 复制到剪贴板", key=None):
-    """创建一键复制按钮（修复版本）"""
-
+    """创建一键复制按钮"""
     if key is None:
         key = hash(text)
 
-    # 安全转义文本
     escaped_text = escape_js_string(text)
 
-    # 更安全的 JavaScript 复制函数
     copy_script = f"""
     <script>
     function copyTextToClipboard{key}() {{
         const text = {escaped_text};
-
         if (!navigator.clipboard) {{
-            // 使用传统方法
             return fallbackCopyTextToClipboard(text);
         }}
         return navigator.clipboard.writeText(text).then(function() {{
             return true;
         }}, function(err) {{
-            // 如果现代API失败，使用传统方法
             return fallbackCopyTextToClipboard(text);
         }});
     }}
@@ -154,7 +80,6 @@ def create_copy_button(text, button_text="📋 复制到剪贴板", key=None):
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
-
         try {{
             const successful = document.execCommand('copy');
             document.body.removeChild(textArea);
@@ -165,24 +90,22 @@ def create_copy_button(text, button_text="📋 复制到剪贴板", key=None):
         }}
     }}
 
-    // 为按钮添加点击事件
     document.addEventListener('DOMContentLoaded', function() {{
         const button = document.querySelector('[data-copy-button="{key}"]');
         if (button) {{
             button.addEventListener('click', function() {{
                 copyTextToClipboard{key}().then(function(success) {{
                     if (success) {{
-                        // 显示成功提示
                         const originalText = button.innerHTML;
                         button.innerHTML = '✅ 复制成功！';
-                        button.style.background = '#28a745';
+                        button.style.background = '#48bb78';
                         setTimeout(function() {{
                             button.innerHTML = originalText;
                             button.style.background = '';
                         }}, 2000);
                     }} else {{
                         button.innerHTML = '❌ 复制失败';
-                        button.style.background = '#dc3545';
+                        button.style.background = '#e53e3e';
                         setTimeout(function() {{
                             button.innerHTML = '{button_text}';
                             button.style.background = '';
@@ -195,37 +118,16 @@ def create_copy_button(text, button_text="📋 复制到剪贴板", key=None):
     </script>
     """
 
-    # 创建按钮的 HTML
     button_html = f"""
     <div>
-        <button data-copy-button="{key}" 
-                style="background:#1f77b4;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:14px;margin:5px;">
+        <button data-copy-button="{key}"
+                style="background:linear-gradient(135deg, #48bb78 0%, #38a169 100%);color:white;border:none;padding:10px 20px;border-radius:10px;cursor:pointer;font-size:14px;margin:5px;font-weight:500;transition:all 0.3s ease;">
             {button_text}
         </button>
     </div>
     """
 
-    # 渲染按钮和脚本
-    components.html(button_html + copy_script, height=60)
-
-
-def copy_to_clipboard(text):
-    """复制文本到剪贴板 - 使用新的复制组件"""
-    try:
-        # 直接使用新的复制按钮组件
-        create_copy_button(text, "📋 复制内容", key=f"copy_{hash(text)}")
-        return True
-    except Exception as e:
-        st.error(f"复制功能出错: {e}")
-        # 备用方案：提供下载按钮
-        st.download_button(
-            label="📥 下载内容（复制备用）",
-            data=text,
-            file_name="content.txt",
-            mime="text/plain",
-            key=f"download_{hash(text)}"
-        )
-        return False
+    components.html(button_html + copy_script, height=70)
 
 
 def display_generated_results(title, content, filename_prefix):
@@ -233,25 +135,57 @@ def display_generated_results(title, content, filename_prefix):
     st.markdown(f'<div class="category-card">📋 生成结果 - {title}</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="result-box">{content}</div>', unsafe_allow_html=True)
 
-    create_copy_button(content, button_text="📋 复制结果", key=f"copy_{filename_prefix}")
-    st.download_button(
-        label="💾 下载结果",
-        data=content,
-        file_name=f"{filename_prefix}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-        mime="text/plain"
-    )
+    col1, col2 = st.columns(2)
+    with col1:
+        create_copy_button(content, button_text="📋 复制结果", key=f"copy_{filename_prefix}")
+    with col2:
+        st.download_button(
+            label="💾 下载结果",
+            data=content,
+            file_name=f"{filename_prefix}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+            mime="text/plain"
+        )
 
 
-# ================ 页面布局 ================
-st.markdown('<div class="main-header">🔧 测试工程师常用工具集</div>', unsafe_allow_html=True)
+# ================ 主页面布局 ================
+# 初始化session state
+if 'selected_tool' not in st.session_state:
+    st.session_state.selected_tool = "数据生成工具"
 
-tool_category = st.sidebar.selectbox(
-    "选择工具类别",
-    ["数据生成工具", "字数统计工具", "文本对比工具", "正则表达式测试工具",
-     "JSON数据对比工具", "日志分析工具", "时间处理工具", "IP/域名查询工具"]
-)
-# ================ 使用说明和注意事项 ================
-# === 主流程开始 === #
+# 顶部标题区域
+st.markdown(HEADLINE_STYLES, unsafe_allow_html=True)
+
+# 工具卡片网格布局
+st.markdown('<div class="sub-header">🚀 可用工具</div>', unsafe_allow_html=True)
+
+# 创建3列布局
+cols = st.columns(3)
+col_index = 0
+
+for category, info in TOOL_CATEGoRIES.items():
+    with cols[col_index]:
+        # 使用st.button创建可点击的卡片
+        if st.button(
+                f"{info['icon']} **{category}**\n\n{info['description']}",
+                key=f"btn_{category}",
+                use_container_width=True,
+                help=f"点击进入{category}"
+        ):
+            st.session_state.selected_tool = category
+            st.rerun()
+
+    col_index = (col_index + 1) % 3
+
+# 添加分隔线
+st.markdown("---")
+# 直接使用session state中的选择
+tool_category = st.session_state.selected_tool
+
+# 显示当前选择的工具
+st.markdown(f'<div class="sub-header">{TOOL_CATEGoRIES[tool_category]["icon"]} {tool_category}</div>',
+            unsafe_allow_html=True)
+
+# === 工具功能实现 ===
 if tool_category == "数据生成工具":
     show_doc("data_generator")
     generator = DataGenerator()
@@ -268,7 +202,7 @@ if tool_category == "数据生成工具":
             st.info("请运行以下命令安装: `pip install faker`")
             st.code("pip install faker", language="bash")
         else:
-            st.markdown('<div class="tool-card">🚀 Faker高级数据生成器</div>', unsafe_allow_html=True)
+            st.markdown('<div class="category-card">🚀 Faker高级数据生成器</div>', unsafe_allow_html=True)
 
             col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
@@ -299,7 +233,6 @@ if tool_category == "数据生成工具":
                 else:
                     st.markdown(f'<div class="result-box">{st.session_state.faker_result}</div>',
                                 unsafe_allow_html=True)
-
                 create_copy_button(st.session_state.faker_result, button_text="📋 复制结果", key="copy_faker_result")
                 st.download_button(
                     label="💾 下载结果",
@@ -309,7 +242,7 @@ if tool_category == "数据生成工具":
                 )
 
     else:  # 基础数据生成器
-        st.markdown('<div class="tool-card">🔧 基础数据生成器</div>', unsafe_allow_html=True)
+        st.markdown('<div class="category-card">🔧 基础数据生成器</div>', unsafe_allow_html=True)
         data_gen_tool = st.radio(
             "选择生成工具",
             ["随机内容生成器", "随机邮箱生成器", "电话号码生成器", "随机地址生成器", "随机身份证生成器"],
@@ -533,6 +466,8 @@ if tool_category == "数据生成工具":
                 result_text = "\n".join(results)
                 display_generated_results(conditions, result_text, "身份证列表")
 
+    st.markdown('</div>', unsafe_allow_html=True)
+
 # 字数统计工具
 elif tool_category == "字数统计工具":
     show_doc("word_counter")
@@ -540,26 +475,52 @@ elif tool_category == "字数统计工具":
     text_input = st.text_area("输入要统计的文本", height=200, placeholder="在此处输入或粘贴文本...")
 
     if text_input:
+        # 指标卡片布局
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
-            st.metric("字符数（含空格）", len(text_input))
+            st.markdown(f"""
+            <div class="metric-card">
+                <div style="font-size: 1.2rem; font-weight: 600; color: #667eea;">字符数（含空格）</div>
+                <div style="font-size: 2rem; font-weight: 700; color: #2d3748;">{len(text_input)}</div>
+            </div>
+            """, unsafe_allow_html=True)
         with col2:
-            st.metric("字符数（不含空格）", len(text_input.replace(" ", "")))
+            st.markdown(f"""
+            <div class="metric-card">
+                <div style="font-size: 1.2rem; font-weight: 600; color: #48bb78;">字符数（不含空格）</div>
+                <div style="font-size: 2rem; font-weight: 700; color: #2d3748;">{len(text_input.replace(' ', ''))}</div>
+            </div>
+            """, unsafe_allow_html=True)
         with col3:
             words = text_input.split()
-            st.metric("单词数", len(words))
+            st.markdown(f"""
+            <div class="metric-card">
+                <div style="font-size: 1.2rem; font-weight: 600; color: #ed8936;">单词数</div>
+                <div style="font-size: 2rem; font-weight: 700; color: #2d3748;">{len(words)}</div>
+            </div>
+            """, unsafe_allow_html=True)
         with col4:
             lines = text_input.split('\n')
-            st.metric("行数", len(lines))
+            st.markdown(f"""
+            <div class="metric-card">
+                <div style="font-size: 1.2rem; font-weight: 600; color: #9f7aea;">行数</div>
+                <div style="font-size: 2rem; font-weight: 700; color: #2d3748;">{len(lines)}</div>
+            </div>
+            """, unsafe_allow_html=True)
         with col5:
             paragraphs = [p for p in text_input.split('\n\n') if p.strip()]
-            st.metric("段落数", len(paragraphs))
+            st.markdown(f"""
+            <div class="metric-card">
+                <div style="font-size: 1.2rem; font-weight: 600; color: #f56565;">段落数</div>
+                <div style="font-size: 2rem; font-weight: 700; color: #2d3748;">{len(paragraphs)}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        st.subheader("详细统计信息")
+        st.markdown('<div class="category-card">📊 详细统计信息</div>', unsafe_allow_html=True)
         char_freq = Counter(text_input)
         sorted_chars = char_freq.most_common(10)
         if sorted_chars:
-            st.write("最常见字符（前10个）:")
+            st.write("**最常见字符（前10个）:**")
             SPECIAL_CHARS_DISPLAY = {
                 ' ': "[空格]",
                 '\n': "[换行]",
@@ -567,7 +528,9 @@ elif tool_category == "字数统计工具":
             }
             for char, freq in sorted_chars:
                 display_char = SPECIAL_CHARS_DISPLAY.get(char, char)
-                st.write(f"'{display_char}': {freq}次")
+                st.write(f"`{display_char}`: {freq}次")
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # 文本对比工具
 elif tool_category == "文本对比工具":
@@ -576,44 +539,44 @@ elif tool_category == "文本对比工具":
     # 简化 session 初始化逻辑
     st.session_state.setdefault('text1_content', "")
     st.session_state.setdefault('text2_content', "")
-    st.session_state.setdefault('clear_counter', 0)  # 添加计数器
+    st.session_state.setdefault('clear_counter', 0)
 
     col_input1, col_input2 = st.columns(2)
 
     with col_input1:
-        st.subheader("原始文本")
-        text1 = st.text_area("原始文本输入区", height=300,
+        st.markdown("**原始文本**")
+        text1 = st.text_area(" ", height=300,  # 将label改为空格
                              key=f"text1_{st.session_state.clear_counter}",
                              value=st.session_state.text1_content,
                              label_visibility="collapsed")
     with col_input2:
-        st.subheader("对比文本")
-        text2 = st.text_area("对比文本输入区", height=300,
+        st.markdown("**对比文本**")
+        text2 = st.text_area(" ", height=300,  # 将label改为空格
                              key=f"text2_{st.session_state.clear_counter}",
                              value=st.session_state.text2_content,
                              label_visibility="collapsed")
 
     button_col1, button_col2 = st.columns([1, 1])
     with button_col1:
-        if st.button("开始对比"):
+        if st.button("开始对比", use_container_width=True):
             if text1 and text2:
                 try:
                     d = Differ()
                     diff = list(d.compare(text1.splitlines(), text2.splitlines()))
 
-                    st.subheader("对比结果")
+                    st.markdown("**对比结果**")
                     html_parts = ["<div style='background-color: #f8f9fa; padding: 10px; border-radius: 5px;'>"]
                     for line in diff:
                         escaped_line = html.escape(line[2:] if len(line) > 2 else line)
                         if line.startswith('+ '):
                             html_parts.append(
-                                f"<div style='background-color: #d4edda; margin: 2px 0; padding: 2px 5px;'>{escaped_line}</div>")
+                                f"<div style='background-color: #d4edda; margin: 2px 0; padding: 2px 5px; border-radius: 3px;'>{escaped_line}</div>")
                         elif line.startswith('- '):
                             html_parts.append(
-                                f"<div style='background-color: #f8d7da; margin: 2px 0; padding: 2px 5px;'>{escaped_line}</div>")
+                                f"<div style='background-color: #f8d7da; margin: 2px 0; padding: 2px 5px; border-radius: 3px;'>{escaped_line}</div>")
                         elif line.startswith('? '):
                             html_parts.append(
-                                f"<div style='background-color: #fff3cd; margin: 2px 0; padding: 2px 5px;'>{escaped_line}</div>")
+                                f"<div style='background-color: #fff3cd; margin: 2px 0; padding: 2px 5px; border-radius: 3px;'>{escaped_line}</div>")
                         else:
                             content = escaped_line if line.startswith('  ') else html.escape(line)
                             html_parts.append(f"<div style='margin: 2px 0; padding: 2px 5px;'>{content}</div>")
@@ -626,12 +589,13 @@ elif tool_category == "文本对比工具":
                 st.warning("请填写原始文本和对比文本")
 
     with button_col2:
-        if st.button("清空所有内容"):
-            # 更新 session_state 并增加计数器
+        if st.button("清空所有内容", use_container_width=True):
             st.session_state.text1_content = ""
             st.session_state.text2_content = ""
             st.session_state.clear_counter += 1
             st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # 正则表达式测试工具
 elif tool_category == "正则表达式测试工具":
@@ -642,15 +606,15 @@ elif tool_category == "正则表达式测试工具":
         regex_pattern = st.text_input("正则表达式", placeholder="例如: ^[a-zA-Z0-9]+$")
         test_text = st.text_area("测试文本", height=200, placeholder="在此输入要测试的文本...")
     with col2:
-        st.subheader("匹配选项")
+        st.markdown("**匹配选项**")
         global_match = st.checkbox("全局匹配 (g)", value=True)
         ignore_case = st.checkbox("忽略大小写 (i)")
         multiline = st.checkbox("多行模式 (m)")
 
-        st.subheader("替换功能")
+        st.markdown("**替换功能**")
         replace_text = st.text_input("替换文本", placeholder="输入替换文本（可选）")
 
-    if st.button("测试正则表达式"):
+    if st.button("测试正则表达式", use_container_width=True):
         if regex_pattern and test_text:
             try:
                 flags = 0
@@ -665,9 +629,9 @@ elif tool_category == "正则表达式测试工具":
 
                     if match_count > 0:
                         st.success(f"匹配成功！找到 {match_count} 个匹配项。")
-                        st.subheader("匹配详情")
+                        st.markdown("**匹配详情**")
                         for i, match in enumerate(matches):
-                            st.write(f"匹配 {i + 1}: 位置 {match.start()}-{match.end()}: '{match.group()}'")
+                            st.write(f"匹配 {i + 1}: 位置 {match.start()}-{match.end()}: `{match.group()}`")
                             if match.groups():
                                 st.write(f"  分组: {match.groups()}")
                     else:
@@ -675,16 +639,19 @@ elif tool_category == "正则表达式测试工具":
 
                 if replace_text:
                     replaced_text = re.sub(regex_pattern, replace_text, test_text, flags=flags)
-                    st.subheader("替换结果")
+                    st.markdown("**替换结果**")
                     st.text_area("", replaced_text, height=150)
             except re.error as e:
                 st.error(f"正则表达式错误: {e}")
         else:
             st.warning("请输入正则表达式和测试文本")
 
+    st.markdown('</div>', unsafe_allow_html=True)
+
 # JSON数据对比工具
 elif tool_category == "JSON数据对比工具":
     show_doc("json_comparison")
+
     utils = JSONFileUtils()
 
     # 初始化 session_state
@@ -696,16 +663,16 @@ elif tool_category == "JSON数据对比工具":
     # 输入区域
     input_cols = st.columns(2)
     with input_cols[0]:
-        st.subheader("JSON 1")
+        st.markdown("**JSON 1**")
         json1 = st.text_area("", height=300, key="json1", value=st.session_state.json1_content)
     with input_cols[1]:
-        st.subheader("JSON 2")
+        st.markdown("**JSON 2**")
         json2 = st.text_area("", height=300, key="json2", value=st.session_state.json2_content)
 
     # 按钮区域
     button_cols = st.columns(2)
     with button_cols[0]:
-        if st.button("格式化JSON"):
+        if st.button("格式化JSON", use_container_width=True):
             try:
                 if json1:
                     parsed_json1 = json.loads(json1)
@@ -720,13 +687,13 @@ elif tool_category == "JSON数据对比工具":
                 st.error(f"JSON格式错误: {e}")
 
     with button_cols[1]:
-        if st.button("开始对比"):
+        if st.button("开始对比", use_container_width=True):
             if json1 and json2:
                 try:
                     obj1 = json.loads(json1)
                     obj2 = json.loads(json2)
 
-                    st.subheader("对比结果")
+                    st.markdown("**对比结果**")
 
                     differences = utils.compare_json(obj1, obj2)
 
@@ -737,7 +704,7 @@ elif tool_category == "JSON数据对比工具":
                     else:
                         st.success("两个JSON对象完全相同")
 
-                    st.subheader("对比摘要")
+                    st.markdown("**对比摘要**")
                     summary_cols = st.columns(3)
                     with summary_cols[0]:
                         st.metric("JSON1键数量", utils.count_keys(obj1))
@@ -753,10 +720,12 @@ elif tool_category == "JSON数据对比工具":
             else:
                 st.warning("请填写两个JSON数据进行对比")
 
-        if st.button("清空"):
+        if st.button("清空", use_container_width=True):
             st.session_state.json1_content = ""
             st.session_state.json2_content = ""
             st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # 日志分析工具
 elif tool_category == "日志分析工具":
@@ -774,7 +743,7 @@ elif tool_category == "日志分析工具":
         log_content = st.text_area("粘贴日志内容", height=200)
 
     if log_content:
-        st.subheader("日志统计信息")
+        st.markdown("**日志统计信息**")
         lines = log_content.split('\n')
         total_lines = len(lines)
 
@@ -804,7 +773,7 @@ elif tool_category == "日志分析工具":
             ax2.set_ylabel('数量')
             st.pyplot(fig)
 
-        st.subheader("日志过滤")
+        st.markdown("**日志过滤**")
         col1, col2 = st.columns(2)
         with col1:
             filter_level = st.multiselect("日志级别", ["ERROR", "WARN", "INFO", "DEBUG"], default=["ERROR", "WARN"])
@@ -813,7 +782,7 @@ elif tool_category == "日志分析工具":
             use_regex = st.checkbox("使用正则表达式")
             case_sensitive = st.checkbox("大小写敏感")
 
-        if st.button("应用过滤"):
+        if st.button("应用过滤", use_container_width=True):
             filtered_lines = []
             for line in lines:
                 level_match = any(level in line for level in filter_level) if filter_level else True
@@ -837,15 +806,18 @@ elif tool_category == "日志分析工具":
                     else:
                         filtered_lines.append(line)
 
-            st.subheader("过滤结果")
+            st.markdown("**过滤结果**")
             st.text_area("", "\n".join(filtered_lines), height=300)
             st.metric("匹配行数", len(filtered_lines))
 
-            if st.button("导出结果"):
+            if st.button("导出结果", use_container_width=True):
                 st.success(f"已找到 {len(filtered_lines)} 行匹配结果（导出功能模拟）")
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 elif tool_category == "时间处理工具":
     show_doc("time_processor")
+
     dt_utils = DateTimeUtils
     time_tool = st.radio(
         "选择时间处理工具",
@@ -854,13 +826,13 @@ elif tool_category == "时间处理工具":
     )
 
     if time_tool == "时间戳转换":
-        st.markdown('<div class="tool-card">时间戳转换</div>', unsafe_allow_html=True)
+        st.markdown('<div class="category-card">⏰ 时间戳转换</div>', unsafe_allow_html=True)
         col1, col2 = st.columns(2)
         with col1:
-            st.subheader("时间戳转日期")
+            st.markdown("**时间戳转日期**")
             timestamp_input = st.text_input("输入时间戳", placeholder="例如: 1633046400")
             timestamp_type = st.radio("时间戳类型", ["秒", "毫秒"])
-            if st.button("转换为日期"):
+            if st.button("转换为日期", use_container_width=True):
                 if not timestamp_input:
                     st.warning("请输入时间戳")
                 else:
@@ -872,14 +844,14 @@ elif tool_category == "时间处理工具":
                         st.success(f"转换结果: {dt.strftime('%Y-%m-%d %H:%M:%S')}")
                     except (ValueError, OSError) as e:
                         st.error(f"请输入有效的时间戳: {e}")
-            if st.button("获取当前时间戳"):
+            if st.button("获取当前时间戳", use_container_width=True):
                 current_timestamp = int(time.time())
                 st.text_input("当前时间戳", value=str(current_timestamp))
         with col2:
-            st.subheader("日期转时间戳")
+            st.markdown("**日期转时间戳**")
             date_input = st.date_input("选择日期")
             time_input = st.time_input("选择时间")
-            if st.button("转换为时间戳"):
+            if st.button("转换为时间戳", use_container_width=True):
                 try:
                     dt = datetime.datetime.combine(date_input, time_input)
                     timestamp = int(dt.timestamp())
@@ -888,14 +860,14 @@ elif tool_category == "时间处理工具":
                     st.error(f"日期转换失败: {e}")
 
     elif time_tool == "时间换算工具":
-        st.markdown('<div class="tool-card">时间换算工具</div>', unsafe_allow_html=True)
+        st.markdown('<div class="category-card">🔄 时间换算工具</div>', unsafe_allow_html=True)
         col1, col2, col3 = st.columns(3)
         with col1:
             value = st.number_input("输入数值", value=1.0)
             from_unit = st.selectbox("从单位", list(TO_SECONDS.keys()))
         with col2:
             to_unit = st.selectbox("转换为", list(TO_SECONDS.keys()))
-            if st.button("转换"):
+            if st.button("转换", use_container_width=True):
                 if from_unit in TO_SECONDS and to_unit in TO_SECONDS:
                     value_in_seconds = value * TO_SECONDS[from_unit]
                     result = value_in_seconds / TO_SECONDS[to_unit]
@@ -903,7 +875,7 @@ elif tool_category == "时间处理工具":
                 else:
                     st.error("单位转换错误")
         with col3:
-            st.subheader("常用时间换算表")
+            st.markdown("**常用时间换算表**")
             st.write("1 分钟 = 60 秒")
             st.write("1 小时 = 60 分钟 = 3600 秒")
             st.write("1 天 = 24 小时 = 1440 分钟")
@@ -912,7 +884,7 @@ elif tool_category == "时间处理工具":
             st.write("1 年 ≈ 365.25 天")
 
     elif time_tool == "日期计算器":
-        st.markdown('<div class="tool-card">日期计算器</div>', unsafe_allow_html=True)
+        st.markdown('<div class="category-card">📅 日期计算器</div>', unsafe_allow_html=True)
         calc_type = st.radio("计算类型", ["日期加减计算", "日期间隔计算"])
 
         if calc_type == "日期加减计算":
@@ -924,7 +896,7 @@ elif tool_category == "时间处理工具":
                 value = st.number_input("数值", min_value=0, value=7)
                 unit = st.selectbox("单位", ["天", "周", "月", "年"])
             with col3:
-                if st.button("计算"):
+                if st.button("计算", use_container_width=True):
                     try:
                         if operation == "加上":
                             if unit == "天":
@@ -953,7 +925,7 @@ elif tool_category == "时间处理工具":
                 start_date = st.date_input("开始日期")
             with col2:
                 end_date = st.date_input("结束日期")
-            if st.button("计算间隔"):
+            if st.button("计算间隔", use_container_width=True):
                 if not start_date or not end_date:
                     st.warning("请选择完整的日期范围")
                 elif start_date > end_date:
@@ -966,9 +938,12 @@ elif tool_category == "时间处理工具":
                     st.info(f"工作日: {business_days} 天")
                     st.info(f"周末天数: {weekend_days} 天")
 
+    st.markdown('</div>', unsafe_allow_html=True)
+
 # IP/域名查询工具
 elif tool_category == "IP/域名查询工具":
     show_doc("ip_domain_query")
+
     # 创建实例
     ip_tool = IPQueryTool()
 
@@ -976,10 +951,10 @@ elif tool_category == "IP/域名查询工具":
         ["IP/域名查询", "子域名查询", "备案信息查询", "批量查询", "IPv4转换工具", "旁站查询", "IP反查网站"])
 
     with tab1:
-        st.subheader("IP/域名基本信息查询")
+        st.markdown("**IP/域名基本信息查询**")
 
         # 添加获取当前公网IP的按钮
-        if st.button("获取当前公网IP", key="get_public_ip"):
+        if st.button("获取当前公网IP", key="get_public_ip", use_container_width=True):
             with st.spinner("正在获取当前公网IP..."):
                 public_ip = ip_tool.get_public_ip()
                 if public_ip != "获取公网IP失败":
@@ -1041,7 +1016,7 @@ elif tool_category == "IP/域名查询工具":
                 if result['success']:
                     st.success("查询成功！")
 
-                    st.subheader("基本信息")
+                    st.markdown("**基本信息**")
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
                         st.metric("IP/域名", result['data'].get('IP地址', result['data'].get('域名', '未知')))
@@ -1075,7 +1050,7 @@ elif tool_category == "IP/域名查询工具":
                         if rdns_result['success']:
                             st.metric("rDNS", rdns_result['data'].get('rDNS', '未知'))
 
-                    st.subheader("详细信息")
+                    st.markdown("**详细信息**")
                     detailed_info = result['data'].copy()
                     for key in ['IP地址', '域名', 'location', 'isp']:
                         detailed_info.pop(key, None)
@@ -1089,16 +1064,16 @@ elif tool_category == "IP/域名查询工具":
                                 value = detailed_info[key]
                                 with cols[j]:
                                     st.markdown(f"""
-                                    <div class="ip-info-card">
-                                        <div class="ip-info-title">{key}</div>
-                                        <div>{value}</div>
+                                    <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border-left: 4px solid #667eea;">
+                                        <div style="font-weight: 600; color: #2d3748; margin-bottom: 0.5rem;">{key}</div>
+                                        <div style="color: #4a5568;">{value}</div>
                                     </div>
                                     """, unsafe_allow_html=True)
                 else:
                     st.error(f"查询失败: {result['error']}")
 
     with tab2:
-        st.subheader("子域名查询")
+        st.markdown("**子域名查询**")
         st.info("查询指定域名的子域名列表")
         col1, col2 = st.columns([2, 1])
         with col1:
@@ -1151,16 +1126,16 @@ elif tool_category == "IP/域名查询工具":
                 for i, subdomain in enumerate(result[:20]):
                     with st.container():
                         st.markdown(f"""
-                        <div class="ip-info-card">
-                            <div class="ip-info-title">子域名 {i + 1}</div>
-                            <div><a href="http://{subdomain}" target="_blank">{subdomain}</a></div>
+                        <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border-left: 4px solid #4299e1;">
+                            <div style="font-weight: 600; color: #2d3748; margin-bottom: 0.5rem;">子域名 {i + 1}</div>
+                            <div style="color: #4a5568;"><a href="http://{subdomain}" target="_blank">{subdomain}</a></div>
                         </div>
                         """, unsafe_allow_html=True)
                 if len(result) > 20:
                     st.info(f"还有 {len(result) - 20} 个子域名未显示")
 
     with tab3:
-        st.subheader("备案信息查询")
+        st.markdown("**备案信息查询**")
         st.info("查询网站备案信息（仅限中国大陆网站）")
         col1, col2 = st.columns([2, 1])
         with col1:
@@ -1224,14 +1199,14 @@ elif tool_category == "IP/域名查询工具":
                 for key, value in result.items():
                     with st.container():
                         st.markdown(f"""
-                        <div class="ip-info-card">
-                            <div class="ip-info-title">{key}</div>
-                            <div>{value}</div>
+                        <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border-left: 4px solid #667eea;">
+                            <div style="font-weight: 600; color: #2d3748; margin-bottom: 0.5rem;">{key}</div>
+                            <div style="color: #4a5568;">{value}</div>
                         </div>
                         """, unsafe_allow_html=True)
 
     with tab4:
-        st.subheader("批量查询工具")
+        st.markdown("**批量查询工具**")
         st.info("支持批量查询IP/域名信息")
 
         query_type = st.radio("查询类型", ["IP地址查询", "域名查询"], horizontal=True)
@@ -1362,7 +1337,7 @@ elif tool_category == "IP/域名查询工具":
                 )
 
     with tab5:
-        st.subheader("IPv4转换工具")
+        st.markdown("**IPv4转换工具**")
         st.info("IPv4地址的各种格式转换")
         conversion_type = st.radio("转换类型",
                                    ["十进制 ↔ 点分十进制",
@@ -1390,9 +1365,9 @@ elif tool_category == "IP/域名查询工具":
                 for key, value in result['data'].items():
                     with st.container():
                         st.markdown(f"""
-                        <div class="ip-info-card">
-                            <div class="ip-info-title">{key}</div>
-                            <div style="font-family: monospace; font-size: 14px;">{value}</div>
+                        <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border-left: 4px solid #667eea;">
+                            <div style="font-weight: 600; color: #2d3748; margin-bottom: 0.5rem;">{key}</div>
+                            <div style="font-family: monospace; font-size: 14px; color: #4a5568;">{value}</div>
                         </div>
                         """, unsafe_allow_html=True)
             else:
@@ -1418,7 +1393,7 @@ elif tool_category == "IP/域名查询工具":
             """)
 
     with tab6:
-        st.subheader("旁站查询")
+        st.markdown("**旁站查询**")
         st.info("查找同一服务器上的其他网站")
         col1, col2 = st.columns([2, 1])
         with col1:
@@ -1436,9 +1411,9 @@ elif tool_category == "IP/域名查询工具":
                     for i, site in enumerate(result['data'][:15]):
                         with st.container():
                             st.markdown(f"""
-                            <div class="ip-info-card">
-                                <div class="ip-info-title">旁站 {i + 1}</div>
-                                <div><a href="http://{site}" target="_blank">{site}</a></div>
+                            <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border-left: 4px solid #4299e1;">
+                                <div style="font-weight: 600; color: #2d3748; margin-bottom: 0.5rem;">旁站 {i + 1}</div>
+                                <div style="color: #4a5568;"><a href="http://{site}" target="_blank">{site}</a></div>
                             </div>
                             """, unsafe_allow_html=True)
                     if len(result['data']) > 15:
@@ -1447,7 +1422,7 @@ elif tool_category == "IP/域名查询工具":
                     st.error(f"查询失败: {result['error']}")
 
     with tab7:
-        st.subheader("IP反查网站")
+        st.markdown("**IP反查网站**")
         st.info("通过IP地址查找使用该IP的网站列表")
         col1, col2 = st.columns([2, 1])
         with col1:
@@ -1470,14 +1445,24 @@ elif tool_category == "IP/域名查询工具":
                     for i, site in enumerate(result['data'][:20]):
                         with st.container():
                             st.markdown(f"""
-                            <div class="ip-info-card">
-                                <div class="ip-info-title">网站 {i + 1}</div>
-                                <div><a href="http://{site}" target="_blank">{site}</a></div>
+                            <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border-left: 4px solid #4299e1;">
+                                <div style="font-weight: 600; color: #2d3748; margin-bottom: 0.5rem;">网站 {i + 1}</div>
+                                <div style="color: #4a5568;"><a href="http://{site}" target="_blank">{site}</a></div>
                             </div>
                             """, unsafe_allow_html=True)
                     if len(result['data']) > 20:
                         st.info(f"还有 {len(result['data']) - 20} 个网站未显示")
                 else:
                     st.error(f"反查失败: {result['error']}")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# 页脚
+st.markdown("---")
+st.markdown("""
+<div style="text-align: center; color: #718096; padding: 2rem 0;">
+    <p>🔧 测试工程师常用工具集 | 为高效测试而生</p>
+</div>
+""", unsafe_allow_html=True)
 
 show_general_guidelines()

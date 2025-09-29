@@ -103,7 +103,252 @@ DOMAINS_PRESET = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "163.c
 PHONE_TYPES = ["手机号", "座机", "国际号码"]
 GENDERS = ["随机", "男", "女"]
 
+# 工具类别定义
+
+TOOL_CATEGoRIES = {
+    "数据生成工具": {
+        "icon": "🎲",
+        "description": "生成测试数据、随机内容、模拟用户信息",
+        "color": "#667eea"
+    },
+    "字数统计工具": {
+        "icon": "📊",
+        "description": "文本分析、字符统计、频率分析",
+        "color": "#48bb78"
+    },
+    "文本对比工具": {
+        "icon": "🔍",
+        "description": "文本差异比较、版本对比分析",
+        "color": "#ed8936"
+    },
+    "正则表达式测试工具": {
+        "icon": "⚡",
+        "description": "正则测试、模式匹配、替换操作",
+        "color": "#9f7aea"
+    },
+    "JSON数据对比工具": {
+        "icon": "📝",
+        "description": "JSON格式验证、差异比较、格式化",
+        "color": "#f56565"
+    },
+    "日志分析工具": {
+        "icon": "📋",
+        "description": "日志解析、级别统计、模式识别",
+        "color": "#4299e1"
+    },
+    "时间处理工具": {
+        "icon": "⏰",
+        "description": "时间戳转换、日期计算、时区处理",
+        "color": "#38b2ac"
+    },
+    "IP/域名查询工具": {
+        "icon": "🌐",
+        "description": "IP定位、域名解析、网络信息查询",
+        "color": "#ed64a6"
+    }
+}
+
+# CSS样式
+CSS_STYLES = """
+<style>
+    /* 全局样式 */
+    .main {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .main-header {
+        font-size: 3rem;
+        color: white;
+        text-align: center;
+        margin-bottom: 2rem;
+        font-weight: 700;
+        text-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        padding: 1rem;
+    }
+
+    .sub-header {
+        font-size: 1.5rem;
+        color: #2d3748;
+        font-weight: 600;
+        margin: 1.5rem 0 1rem 0;
+        padding-bottom: 0.5rem;
+        border-bottom: 3px solid #667eea;
+    }
+
+    /* 工具卡片网格布局 */
+    .tools-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin: 2rem 0;
+    }
+
+    .tool-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .tool-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        border-color: #667eea;
+    }
+
+    .tool-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        color: #667eea;
+    }
+
+    .tool-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+    }
+
+    .tool-desc {
+        color: #718096;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    /* 功能区域样式 */
+    .section-card {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        margin: 1.5rem 0;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+    }
+
+    .category-card {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    /* 按钮样式 */
+    .stButton button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+
+    .stButton button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .copy-btn {
+        background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        color: white;
+        border: none;
+        padding: 0.6rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        margin: 5px;
+    }
+
+    .copy-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 15px rgba(72, 187, 120, 0.3);
+    }
+
+    /* 结果框样式 */
+    .result-box {
+        background: #f8fafc;
+        border: 2px dashed #cbd5e0;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        font-family: 'Courier New', monospace;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+        font-size: 0.9rem;
+    }
+
+    /* 标签页样式 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2rem;
+        background-color: #f7fafc;
+        padding: 0.5rem;
+        border-radius: 12px;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre-wrap;
+        background-color: #f7fafc;
+        border-radius: 8px 8px 0px 0px;
+        gap: 1rem;
+        padding: 0 1.5rem;
+        font-weight: 500;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background-color: #667eea !important;
+        color: white !important;
+    }
+
+    /* 侧边栏样式 */
+    .css-1d391kg {
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+
+    /* 指标卡片 */
+    .metric-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        text-align: center;
+        border-left: 4px solid #667eea;
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 768px) {
+        .tools-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .main-header {
+            font-size: 2rem;
+        }
+    }
+</style>
+"""
+# 顶部标题区域
+HEADLINE_STYLES = """
+<div style="text-align: center; padding: 3rem 1rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 0 0 20px 20px; margin: -1rem -1rem 2rem -1rem;">
+    <h1 class="main-header">🔧 测试工程师常用工具集</h1>
+    <p style="color: white; font-size: 1.2rem; opacity: 0.9; max-width: 600px; margin: 0 auto;">
+        一站式测试数据生成、分析和处理平台
+    </p>
+</div>
+"""
+
 # 导出所有常量
 __all__ = ['PROVINCES', 'COUNTRIES', 'CATEGORIES', 'PROVINCE_MAP', 'TO_SECONDS', 'RANDOM_STRING_TYPES',
            'PASSWORD_OPTIONS',
-           'DOMAINS_PRESET', 'PHONE_TYPES', 'GENDERS']
+           'DOMAINS_PRESET', 'PHONE_TYPES', 'GENDERS', 'TOOL_CATEGoRIES', 'CSS_STYLES','HEADLINE_STYLES']
