@@ -12,6 +12,9 @@ import streamlit as st
 from doc_manager import show_doc, show_general_guidelines
 from ip_query_tool import IPQueryTool
 from data_generator import DataGenerator
+import sys
+print(sys.path)
+sys.path.append('/mount/src/test/test')
 from data_constants import PROVINCES, COUNTRIES, CATEGORIES, PROVINCE_MAP, TO_SECONDS, RANDOM_STRING_TYPES, \
     PASSWORD_OPTIONS, DOMAINS_PRESET, PHONE_TYPES, GENDERS, TOOL_CATEGoRIES, CSS_STYLES, HEADLINE_STYLES
 from datetime_utils import DateTimeUtils
@@ -20,9 +23,8 @@ from collections import Counter
 import datetime
 import uuid
 import random
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+
 
 # 导入Faker库
 try:
