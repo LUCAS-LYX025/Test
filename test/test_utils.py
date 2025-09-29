@@ -662,83 +662,357 @@ elif tool_category == "正则表达式测试工具":
     st.markdown('</div>', unsafe_allow_html=True)
 
 # JSON数据对比工具
-elif tool_category == "JSON数据对比工具":
-    show_doc("json_comparison")
-
+elif tool_category == "JSON处理工具":
     utils = JSONFileUtils()
 
-    # 初始化 session_state
-    if 'json1_content' not in st.session_state:
-        st.session_state.json1_content = '{"name": "John", "age": 30}'
-    if 'json2_content' not in st.session_state:
-        st.session_state.json2_content = '{"name": "Jane", "age": 25}'
+    # 工具选择
+    tool_mode = st.radio(
+        "选择处理模式",
+        ["JSON解析与格式化", "JSON数据对比", "JSONPath查询"],
+        horizontal=True
+    )
 
-    # 输入区域
-    input_cols = st.columns(2)
-    with input_cols[0]:
-        st.markdown("**JSON 1**")
-        json1 = st.text_area("", height=300, key="json1", value=st.session_state.json1_content)
-    with input_cols[1]:
-        st.markdown("**JSON 2**")
-        json2 = st.text_area("", height=300, key="json2", value=st.session_state.json2_content)
+    if tool_mode == "JSON解析与格式化":
+        show_doc("json_parser")
 
-    # 按钮区域
-    button_cols = st.columns(2)
-    with button_cols[0]:
-        if st.button("格式化JSON", use_container_width=True):
-            try:
-                if json1:
-                    parsed_json1 = json.loads(json1)
-                    formatted_json1 = json.dumps(parsed_json1, indent=2, ensure_ascii=False)
-                    st.session_state.json1_content = formatted_json1
-                if json2:
-                    parsed_json2 = json.loads(json2)
-                    formatted_json2 = json.dumps(parsed_json2, indent=2, ensure_ascii=False)
-                    st.session_state.json2_content = formatted_json2
+        st.markdown("""
+        <style>
+        .json-parse-result {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .json-success {
+            background-color: #f0f9ff;
+            border: 1px solid #b3e0ff;
+        }
+        .json-error {
+            background-color: #fff5f5;
+            border: 1px solid #ffcccc;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        # 初始化session_state
+        if 'json_input_content' not in st.session_state:
+            st.session_state.json_input_content = '{"name": "Tom", "age": 25, "hobbies": ["reading", "swimming"]}'
+        if 'parse_result' not in st.session_state:
+            st.session_state.parse_result = None
+        if 'parse_error' not in st.session_state:
+            st.session_state.parse_error = None
+
+        # 输入区域
+        st.markdown("**JSON输入**")
+        json_input = st.text_area("", height=300, key="json_input", value=st.session_state.json_input_content,
+                                  placeholder='请输入JSON字符串，例如: {"name": "Tom", "age": 25}')
+
+        # 按钮区域
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+
+        with col1:
+            if st.button("🚀 解析JSON", use_container_width=True):
+                if json_input.strip():
+                    try:
+                        # 解析JSON
+                        parsed_json = json.loads(json_input)
+                        st.session_state.parse_result = parsed_json
+                        st.session_state.parse_error = None
+                        st.rerun()
+                    except json.JSONDecodeError as e:
+                        st.session_state.parse_result = None
+                        st.session_state.parse_error = str(e)
+                        st.rerun()
+                else:
+                    st.warning("请输入JSON字符串")
+
+        with col2:
+            if st.button("✨ 格式化", use_container_width=True):
+                if json_input.strip():
+                    try:
+                        parsed_json = json.loads(json_input)
+                        formatted_json = json.dumps(parsed_json, indent=2, ensure_ascii=False)
+                        st.session_state.json_input_content = formatted_json
+                        st.session_state.parse_result = parsed_json
+                        st.session_state.parse_error = None
+                        st.rerun()
+                    except json.JSONDecodeError as e:
+                        st.session_state.parse_error = str(e)
+                        st.rerun()
+
+        with col3:
+            if st.button("📋 复制结果", use_container_width=True):
+                if st.session_state.parse_result is not None:
+                    formatted_json = json.dumps(st.session_state.parse_result, indent=2, ensure_ascii=False)
+                    st.code(formatted_json, language='json')
+                    # 这里可以添加复制到剪贴板的功能
+                    st.success("结果已准备好复制")
+
+        with col4:
+            if st.button("🗑️ 清空", use_container_width=True):
+                st.session_state.json_input_content = ""
+                st.session_state.parse_result = None
+                st.session_state.parse_error = None
                 st.rerun()
-            except json.JSONDecodeError as e:
-                st.error(f"JSON格式错误: {e}")
 
-    with button_cols[1]:
-        if st.button("开始对比", use_container_width=True):
-            if json1 and json2:
+        # 显示解析结果
+        if st.session_state.parse_result is not None:
+            st.markdown("### 📊 解析结果")
+
+            # 显示格式化后的JSON
+            formatted_json = json.dumps(st.session_state.parse_result, indent=2, ensure_ascii=False)
+            with st.expander("📄 格式化JSON", expanded=True):
+                st.code(formatted_json, language='json')
+
+            # 显示JSON信息统计
+            st.markdown("### 📈 JSON信息统计")
+            info_cols = st.columns(4)
+
+            with info_cols[0]:
+                total_keys = utils.count_keys(st.session_state.parse_result)
+                st.metric("总键数量", total_keys)
+
+            with info_cols[1]:
+                json_size = len(json_input.encode('utf-8'))
+                st.metric("JSON大小", f"{json_size} 字节")
+
+            with info_cols[2]:
+                depth = utils.get_json_depth(st.session_state.parse_result)
+                st.metric("最大深度", depth)
+
+            with info_cols[3]:
+                data_type = type(st.session_state.parse_result).__name__
+                st.metric("根类型", data_type)
+
+            # 显示JSON结构树
+            st.markdown("### 🌳 JSON结构")
+            structure = utils.analyze_json_structure(st.session_state.parse_result)
+            utils.display_json_structure(structure)
+
+        elif st.session_state.parse_error is not None:
+            st.markdown("### ❌ 解析错误")
+            st.error(f"JSON解析错误: {st.session_state.parse_error}")
+
+            # 提供错误修正建议
+            error_msg = st.session_state.parse_error.lower()
+            if "expecting" in error_msg or "unexpected" in error_msg:
+                st.info("""
+                **🔧 常见错误修正建议：**
+                - 检查是否缺少逗号分隔符
+                - 检查引号是否匹配（建议使用双引号）
+                - 检查大括号、中括号是否匹配
+                - 检查最后一个元素后不应有逗号
+                """)
+            elif "double quotes" in error_msg:
+                st.info("""
+                **💡 引号使用建议：**
+                - JSON规范要求使用双引号
+                - 错误的例子: `{name:'Tom'}`
+                - 正确的例子: `{"name":"Tom"}`
+                """)
+
+    elif tool_mode == "JSON数据对比":
+        show_doc("json_comparison")
+
+        # 初始化 session_state
+        if 'json1_content' not in st.session_state:
+            st.session_state.json1_content = '{"name": "John", "age": 30, "city": "New York"}'
+        if 'json2_content' not in st.session_state:
+            st.session_state.json2_content = '{"name": "Jane", "age": 25, "country": "USA"}'
+
+        # 输入区域
+        input_cols = st.columns(2)
+        with input_cols[0]:
+            st.markdown("**JSON 1**")
+            json1 = st.text_area("", height=300, key="json1", value=st.session_state.json1_content,
+                                 placeholder='输入第一个JSON数据...')
+        with input_cols[1]:
+            st.markdown("**JSON 2**")
+            json2 = st.text_area("", height=300, key="json2", value=st.session_state.json2_content,
+                                 placeholder='输入第二个JSON数据...')
+
+        # 按钮区域
+        button_cols = st.columns(4)
+        with button_cols[0]:
+            if st.button("✨ 格式化全部", use_container_width=True):
                 try:
-                    obj1 = json.loads(json1)
-                    obj2 = json.loads(json2)
-
-                    st.markdown("**对比结果**")
-
-                    differences = utils.compare_json(obj1, obj2)
-
-                    if differences:
-                        st.error("发现差异:")
-                        for diff in differences:
-                            st.write(f"- {diff}")
-                    else:
-                        st.success("两个JSON对象完全相同")
-
-                    st.markdown("**对比摘要**")
-                    summary_cols = st.columns(3)
-                    with summary_cols[0]:
-                        st.metric("JSON1键数量", utils.count_keys(obj1))
-                    with summary_cols[1]:
-                        st.metric("JSON2键数量", utils.count_keys(obj2))
-                    with summary_cols[2]:
-                        st.metric("差异数量", len(differences))
-
+                    if json1:
+                        parsed_json1 = json.loads(json1)
+                        formatted_json1 = json.dumps(parsed_json1, indent=2, ensure_ascii=False)
+                        st.session_state.json1_content = formatted_json1
+                    if json2:
+                        parsed_json2 = json.loads(json2)
+                        formatted_json2 = json.dumps(parsed_json2, indent=2, ensure_ascii=False)
+                        st.session_state.json2_content = formatted_json2
+                    st.rerun()
                 except json.JSONDecodeError as e:
                     st.error(f"JSON格式错误: {e}")
-                except Exception as e:
-                    st.error(f"对比过程中发生错误: {e}")
+
+        with button_cols[1]:
+            if st.button("🔍 开始对比", use_container_width=True):
+                if json1 and json2:
+                    try:
+                        obj1 = json.loads(json1)
+                        obj2 = json.loads(json2)
+
+                        st.markdown("### 📋 对比结果")
+
+                        differences = utils.compare_json(obj1, obj2)
+
+                        if differences:
+                            st.error(f"发现 {len(differences)} 个差异:")
+                            for diff in differences:
+                                st.write(f"- {diff}")
+                        else:
+                            st.success("✅ 两个JSON对象完全相同")
+
+                        st.markdown("### 📊 对比摘要")
+                        summary_cols = st.columns(3)
+                        with summary_cols[0]:
+                            st.metric("JSON1键数量", utils.count_keys(obj1))
+                        with summary_cols[1]:
+                            st.metric("JSON2键数量", utils.count_keys(obj2))
+                        with summary_cols[2]:
+                            st.metric("差异数量", len(differences))
+
+                    except json.JSONDecodeError as e:
+                        st.error(f"JSON格式错误: {e}")
+                    except Exception as e:
+                        st.error(f"对比过程中发生错误: {e}")
+                else:
+                    st.warning("请填写两个JSON数据进行对比")
+
+        with button_cols[2]:
+            if st.button("🔄 交换数据", use_container_width=True):
+                st.session_state.json1_content, st.session_state.json2_content = \
+                    st.session_state.json2_content, st.session_state.json1_content
+                st.rerun()
+
+        with button_cols[3]:
+            if st.button("🗑️ 清空全部", use_container_width=True):
+                st.session_state.json1_content = ""
+                st.session_state.json2_content = ""
+                st.rerun()
+
+    elif tool_mode == "JSONPath查询":
+        show_doc("jsonpath_tool")
+
+        # st.markdown("### 🔍 JSONPath查询工具")
+
+        # 初始化session_state
+        if 'jsonpath_json_content' not in st.session_state:
+            st.session_state.jsonpath_json_content = '''{
+    "store": {
+        "book": [
+            {
+                "category": "reference",
+                "author": "Nigel Rees",
+                "title": "Sayings of the Century",
+                "price": 8.95
+            },
+            {
+                "category": "fiction",
+                "author": "Evelyn Waugh",
+                "title": "Sword of Honour",
+                "price": 12.99
+            },
+            {
+                "category": "fiction",
+                "author": "Herman Melville",
+                "title": "Moby Dick",
+                "isbn": "0-553-21311-3",
+                "price": 8.99
+            },
+            {
+                "category": "fiction",
+                "author": "J. R. R. Tolkien",
+                "title": "The Lord of the Rings",
+                "isbn": "0-395-19395-8",
+                "price": 22.99
+            }
+        ],
+        "bicycle": {
+            "color": "red",
+            "price": 19.95
+        }
+    },
+    "expensive": 10
+}'''
+        if 'jsonpath_expression' not in st.session_state:
+            st.session_state.jsonpath_expression = "$.store.book[*].author"
+        if 'jsonpath_result' not in st.session_state:
+            st.session_state.jsonpath_result = None
+
+        # 布局：左右分栏
+        left_col, right_col = st.columns([1, 1])
+
+        with left_col:
+            st.markdown("**📝 JSON数据**")
+            json_data_input = st.text_area("", height=400, key="jsonpath_json",
+                                           value=st.session_state.jsonpath_json_content,
+                                           placeholder='输入JSON数据...')
+
+            st.markdown("**🎯 JSONPath表达式**")
+            jsonpath_input = st.text_input("", key="jsonpath_expr",
+                                           value=st.session_state.jsonpath_expression,
+                                           placeholder='例如: $.store.book[*].author')
+
+            # 操作按钮
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🚀 执行查询", use_container_width=True):
+                    if json_data_input.strip() and jsonpath_input.strip():
+                        try:
+                            # 更新session_state为当前输入的值
+                            st.session_state.jsonpath_json_content = json_data_input
+                            st.session_state.jsonpath_expression = jsonpath_input
+                            # 解析JSON数据
+                            json_data = json.loads(json_data_input)
+
+                            # 执行JSONPath查询
+                            result = utils.execute_jsonpath(json_data, jsonpath_input)
+                            st.session_state.jsonpath_result = result
+                            st.rerun()
+
+                        except json.JSONDecodeError as e:
+                            st.error(f"JSON数据格式错误: {e}")
+                        except Exception as e:
+                            st.error(f"JSONPath查询错误: {e}")
+                    else:
+                        st.warning("请填写JSON数据和JSONPath表达式")
+
+            with col2:
+                if st.button("🗑️ 清空", use_container_width=True):
+                    st.session_state.jsonpath_json_content = ""
+                    st.session_state.jsonpath_expression = ""
+                    st.session_state.jsonpath_result = None
+                    st.rerun()
+
+        with right_col:
+            st.markdown("### 📋 查询结果")
+
+            # 显示结果
+            if st.session_state.jsonpath_result is not None:
+                result = st.session_state.jsonpath_result
+
+                if result:
+                    st.success(f"✅ 找到 {len(result)} 个匹配项")
+
+                    # 显示匹配数量
+                    st.metric("匹配数量", len(result))
+
+                    # 显示结果详情
+                    st.markdown("**📄 匹配结果:**")
+                    for i, item in enumerate(result):
+                        with st.expander(f"结果 #{i + 1}", expanded=len(result) <= 3):
+                            if isinstance(item, (dict, list)):
+                                st.json(item)
+                            else:
+                                st.code(str(item))
+                else:
+                    st.warning("❌ 未找到匹配项")
+
             else:
-                st.warning("请填写两个JSON数据进行对比")
-
-        if st.button("清空", use_container_width=True):
-            st.session_state.json1_content = ""
-            st.session_state.json2_content = ""
-            st.rerun()
-
-    st.markdown('</div>', unsafe_allow_html=True)
+                st.info("👆 请在左侧输入JSON数据和JSONPath表达式，然后点击'执行查询'")
 
 # 日志分析工具
 elif tool_category == "日志分析工具":

@@ -5,6 +5,7 @@ JSON和文件操作工具类
 
 import os
 import re
+import streamlit as st
 from pathlib import Path
 from typing import Union, List, Any, Dict
 
@@ -23,23 +24,7 @@ class JSONFileUtils:
         }
 
     def get_filename(self, filepath: Union[str, Path], with_extension: bool = True) -> str:
-        """
-        从文件路径中提取文件名
-
-        Args:
-            filepath: 文件路径，可以是字符串或Path对象
-            with_extension: 是否包含文件扩展名，默认为True
-
-        Returns:
-            str: 提取的文件名
-
-        Examples:
-            >>> utils = JSONFileUtils()
-            >>> utils.get_filename("/path/to/file.txt")
-            'file.txt'
-            >>> utils.get_filename("/path/to/file.txt", False)
-            'file'
-        """
+        """从文件路径中提取文件名"""
         filepath = str(filepath)
         basename = os.path.basename(filepath)
 
@@ -51,22 +36,7 @@ class JSONFileUtils:
     def get_filename_advanced(self, filepath: Union[str, Path],
                               with_extension: bool = True,
                               clean_special_chars: bool = False) -> str:
-        """
-        高级文件名提取函数，提供更多选项
-
-        Args:
-            filepath: 文件路径
-            with_extension: 是否包含扩展名
-            clean_special_chars: 是否清理特殊字符
-
-        Returns:
-            str: 处理后的文件名
-
-        Examples:
-            >>> utils = JSONFileUtils()
-            >>> utils.get_filename_advanced("/path/to/special@file#name.txt", clean_special_chars=True)
-            'special_file_name.txt'
-        """
+        """高级文件名提取函数，提供更多选项"""
         filename = self.get_filename(filepath, with_extension)
 
         if clean_special_chars:
@@ -80,25 +50,7 @@ class JSONFileUtils:
         return filename
 
     def compare_json(self, obj1: Any, obj2: Any, path: str = "") -> List[str]:
-        """
-        比较两个JSON对象的差异
-
-        Args:
-            obj1: 第一个JSON对象
-            obj2: 第二个JSON对象
-            path: 当前比较的路径（用于递归）
-
-        Returns:
-            List[str]: 差异列表
-
-        Examples:
-            >>> utils = JSONFileUtils()
-            >>> obj1 = {"name": "John", "age": 30}
-            >>> obj2 = {"name": "Jane", "age": 30}
-            >>> differences = utils.compare_json(obj1, obj2)
-            >>> print(differences)
-            ['值不同: name (John vs Jane)']
-        """
+        """比较两个JSON对象的差异"""
         differences = []
         self.comparison_stats['keys_compared'] += 1
 
@@ -139,21 +91,7 @@ class JSONFileUtils:
         return differences
 
     def count_keys(self, obj: Any) -> int:
-        """
-        计算JSON对象中的键数量
-
-        Args:
-            obj: JSON对象（字典、列表或基本类型）
-
-        Returns:
-            int: 键的总数量
-
-        Examples:
-            >>> utils = JSONFileUtils()
-            >>> data = {"user": {"name": "John", "age": 30}, "tags": ["a", "b"]}
-            >>> utils.count_keys(data)
-            5
-        """
+        """计算JSON对象中的键数量"""
         if isinstance(obj, dict):
             count = len(obj)
             for value in obj.values():
@@ -168,12 +106,7 @@ class JSONFileUtils:
             return 0
 
     def get_comparison_stats(self) -> Dict[str, int]:
-        """
-        获取比较统计信息
-
-        Returns:
-            Dict[str, int]: 统计信息字典
-        """
+        """获取比较统计信息"""
         return self.comparison_stats.copy()
 
     def reset_stats(self):
@@ -184,22 +117,17 @@ class JSONFileUtils:
         }
 
     def analyze_json_structure(self, obj: Any, current_level: int = 0) -> Dict[str, Any]:
-        """
-        分析JSON结构
-
-        Args:
-            obj: 要分析的JSON对象
-            current_level: 当前层级
-
-        Returns:
-            Dict[str, Any]: 结构分析结果
-        """
+        """分析JSON结构"""
         analysis = {
             'type': type(obj).__name__,
             'level': current_level,
             'size': len(obj) if hasattr(obj, '__len__') else 1,
             'children': []
         }
+
+        # 对于基本类型，保存值信息
+        if not isinstance(obj, (dict, list)):
+            analysis['value'] = str(obj)
 
         if isinstance(obj, dict):
             for key, value in obj.items():
@@ -214,64 +142,497 @@ class JSONFileUtils:
 
         return analysis
 
+    def get_json_depth(self, obj: Any, current_depth: int = 0) -> int:
+        """计算JSON对象的最大深度"""
+        if isinstance(obj, dict):
+            if obj:
+                return max(self.get_json_depth(value, current_depth + 1) for value in obj.values())
+            else:
+                return current_depth + 1
+        elif isinstance(obj, list):
+            if obj:
+                return max(self.get_json_depth(item, current_depth + 1) for item in obj)
+            else:
+                return current_depth + 1
+        else:
+            return current_depth
 
-# 使用示例
-if __name__ == "__main__":
-    # 创建工具实例
-    utils = JSONFileUtils()
+    def display_json_structure(self, structure: Dict[str, Any], level: int = 0):
+        """显示JSON结构树"""
+        indent = "  " * level
+        node_type = structure['type']
 
-    # 测试文件名提取
-    test_paths = [
-        "/home/user/documents/file.txt",
-        "C:\\Users\\Documents\\image.jpg",
-        "relative/path/data.json",
-        "file_without_path.ext",
-        "/path/with/special@chars#file.name"
-    ]
+        if node_type == 'dict':
+            st.write(f"{indent}📁 对象 (键数量: {structure['size']})")
+            for child in structure['children']:
+                # 修复：确保正确显示键名
+                key_name = child.get('key', '')
+                st.write(f"{indent}  🔑 {key_name}: ", end="")
+                self.display_json_structure(child, level + 1)
+        elif node_type == 'list':
+            st.write(f"{indent}📋 数组 (元素数量: {structure['size']})")
+            for child in structure['children']:
+                # 修复：确保正确显示数组索引
+                index = child.get('index', 0)
+                st.write(f"{indent}  📍 [{index}]: ", end="")
+                self.display_json_structure(child, level + 1)
+        else:
+            # 修复：显示基本类型的值
+            value = structure.get('value', '')
+            if value:
+                st.write(f"{indent}📄 {node_type}: {value}")
+            else:
+                st.write(f"{indent}📄 {node_type}")
 
-    print("=== 文件名提取测试 ===")
-    for path in test_paths:
-        print(f"路径: {path}")
-        print(f"  文件名(含扩展名): {utils.get_filename(path)}")
-        print(f"  文件名(不含扩展名): {utils.get_filename(path, False)}")
-        print(f"  清理后文件名: {utils.get_filename_advanced(path, clean_special_chars=True)}")
-        print()
+    def execute_jsonpath(self, json_data: Any, expression: str) -> List[Any]:
+        """执行JSONPath查询"""
+        try:
+            # 这里可以使用 jsonpath-ng 库，如果没有安装可以使用简化实现
+            return self._simple_jsonpath(json_data, expression)
+        except Exception as e:
+            raise Exception(f"JSONPath执行错误: {e}")
 
-    # 测试JSON比较
-    print("=== JSON比较测试 ===")
-    json1 = {
-        "name": "John",
-        "age": 30,
-        "address": {
-            "city": "New York",
-            "zipcode": "10001"
-        },
-        "hobbies": ["reading", "swimming"]
-    }
+    def _simple_jsonpath(self, data: Any, path: str) -> List[Any]:
+        """简化版JSONPath实现"""
+        if path == "$":
+            return [data]
 
-    json2 = {
-        "name": "Jane",
-        "age": 30,
-        "address": {
-            "city": "Boston",
-            "country": "USA"
-        },
-        "hobbies": ["reading", "running"]
-    }
+        # 处理函数调用如 .length()
+        if path.endswith('.length()'):
+            prop_path = path[:-9]  # 移除 .length()
+            if prop_path == "$":
+                if isinstance(data, list):
+                    return [len(data)]
+                elif isinstance(data, dict):
+                    return [len(data)]
+                else:
+                    return [1]
+            else:
+                # 获取路径对应的值，然后计算长度
+                target_data = self._evaluate_path(data, prop_path[1:] if prop_path.startswith('$') else prop_path)
+                if target_data and isinstance(target_data[0], (list, dict)):
+                    return [len(target_data[0])]
+                else:
+                    return [len(target_data)] if target_data else [0]
 
-    differences = utils.compare_json(json1, json2)
-    print("差异列表:")
-    for diff in differences:
-        print(f"  - {diff}")
+        # 移除开头的 $ 符号
+        if path.startswith("$"):
+            path = path[1:]
 
-    print(f"\n比较统计: {utils.get_comparison_stats()}")
+        return self._evaluate_path(data, path)
 
-    # 测试键计数
-    print(f"\n=== 键计数测试 ===")
-    key_count = utils.count_keys(json1)
-    print(f"JSON1键数量: {key_count}")
+    def _evaluate_path(self, data: Any, path: str) -> List[Any]:
+        """完整的JSONPath评估实现"""
+        if not path:
+            return [data]
 
-    # 测试结构分析
-    print(f"\n=== 结构分析测试 ===")
-    structure = utils.analyze_json_structure(json1)
-    print(f"结构分析: {structure}")
+        results = []
+
+        # 处理递归下降操作符 ..
+        if path.startswith(".."):
+            remaining = path[2:]
+
+            # 首先检查当前层级是否匹配剩余路径
+            if remaining:
+                if remaining.startswith('.'):
+                    remaining = remaining[1:]
+                results.extend(self._evaluate_path(data, remaining))
+
+            # 递归搜索所有子层级
+            if isinstance(data, dict):
+                for value in data.values():
+                    results.extend(self._evaluate_path(value, path))  # 继续递归下降
+                    if remaining:
+                        results.extend(self._evaluate_path(value, remaining))
+            elif isinstance(data, list):
+                for item in data:
+                    results.extend(self._evaluate_path(item, path))  # 继续递归下降
+                    if remaining:
+                        results.extend(self._evaluate_path(item, remaining))
+            return results
+
+        # 处理通配符 *
+        if path == "*":
+            if isinstance(data, dict):
+                return list(data.values())
+            elif isinstance(data, list):
+                return data
+            return []
+
+        # 处理所有元素选择 $..*
+        if path.startswith("*"):
+            remaining = path[1:]
+            if isinstance(data, dict):
+                for value in data.values():
+                    results.extend(self._evaluate_path(value, remaining))
+            elif isinstance(data, list):
+                for item in data:
+                    results.extend(self._evaluate_path(item, remaining))
+            return results
+
+        # 处理数组切片 [start:end:step]
+        if path.startswith("["):
+            close_bracket = path.find(']')
+            if close_bracket == -1:
+                return []
+
+            index_expr = path[1:close_bracket]
+            remaining = path[close_bracket + 1:]
+
+            if isinstance(data, list):
+                # 处理切片 [start:end:step]
+                if ':' in index_expr:
+                    slice_results = self._handle_slice(data, index_expr, remaining)
+                    results.extend(slice_results)
+                # 处理过滤器 [?(@.condition)]
+                elif index_expr.startswith('?(@'):
+                    filter_results = self._apply_filter(data, index_expr[3:-1], remaining)
+                    results.extend(filter_results)
+                # 处理多个索引 [0,1]
+                elif ',' in index_expr:
+                    indices = [idx.strip() for idx in index_expr.split(',')]
+                    for idx_str in indices:
+                        if idx_str.isdigit() or (idx_str.startswith('-') and idx_str[1:].isdigit()):
+                            idx = int(idx_str)
+                            if -len(data) <= idx < len(data):
+                                adjusted_idx = idx if idx >= 0 else len(data) + idx
+                                results.extend(self._evaluate_path(data[adjusted_idx], remaining))
+                # 处理单个索引 [0], [-1]
+                elif index_expr.isdigit() or (index_expr.startswith('-') and index_expr[1:].isdigit()):
+                    idx = int(index_expr)
+                    if -len(data) <= idx < len(data):
+                        adjusted_idx = idx if idx >= 0 else len(data) + idx
+                        results.extend(self._evaluate_path(data[adjusted_idx], remaining))
+                # 处理通配符 [*]
+                elif index_expr == '*':
+                    for item in data:
+                        results.extend(self._evaluate_path(item, remaining))
+            return results
+
+        # 处理属性访问 .property
+        if path.startswith("."):
+            next_dot = path.find('.', 1)
+            next_bracket = path.find('[', 1)
+
+            # 找到下一个分隔符
+            separators = [sep for sep in [next_dot, next_bracket] if sep != -1]
+            next_sep = min(separators) if separators else len(path)
+
+            prop = path[1:next_sep]
+            remaining = path[next_sep:] if next_sep < len(path) else ""
+
+            if isinstance(data, dict):
+                if prop in data:
+                    results.extend(self._evaluate_path(data[prop], remaining))
+            elif isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict) and prop in item:
+                        results.extend(self._evaluate_path(item[prop], remaining))
+            return results
+
+        # 处理直接属性访问（没有前导点）
+        if '.' in path or '[' in path:
+            # 找到第一个分隔符
+            dot_pos = path.find('.')
+            bracket_pos = path.find('[')
+
+            first_sep = min([pos for pos in [dot_pos, bracket_pos] if pos != -1])
+            prop = path[:first_sep]
+            remaining = path[first_sep:]
+
+            if isinstance(data, dict) and prop in data:
+                results.extend(self._evaluate_path(data[prop], remaining))
+            elif isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict) and prop in item:
+                        results.extend(self._evaluate_path(item[prop], remaining))
+        else:
+            # 单个属性
+            if isinstance(data, dict) and path in data:
+                return [data[path]]
+            elif isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict) and path in item:
+                        results.append(item[path])
+
+        return results
+
+    def _evaluate_simple_path(self, data: Any, path: str) -> List[Any]:
+        """评估简单路径表达式"""
+        if not path:
+            return [data]
+
+        # 处理点表示法 .property
+        if path.startswith('.'):
+            path = path[1:]  # 移除开头的点
+
+        # 查找下一个分隔符
+        dot_pos = path.find('.')
+        bracket_pos = path.find('[')
+
+        # 确定下一个路径段
+        if dot_pos == -1 and bracket_pos == -1:
+            # 最后一个路径段
+            return self._get_property(data, path)
+        elif bracket_pos != -1 and (dot_pos == -1 or bracket_pos < dot_pos):
+            # 下一个是数组访问 [index]
+            prop = path[:bracket_pos]
+            remaining = path[bracket_pos:]
+
+            if prop:  # 有属性名，如 books[0]
+                current_data = self._get_property(data, prop)
+            else:  # 直接数组访问，如 [0]
+                current_data = [data] if data is not None else []
+
+            results = []
+            for item in current_data:
+                results.extend(self._process_array_access(item, remaining))
+            return results
+        else:
+            # 下一个是属性访问 .property
+            prop = path[:dot_pos]
+            remaining = path[dot_pos:]
+
+            current_data = self._get_property(data, prop)
+            results = []
+            for item in current_data:
+                results.extend(self._evaluate_simple_path(item, remaining))
+            return results
+
+    def _get_property(self, data: Any, prop: str) -> List[Any]:
+        """获取属性值"""
+        if prop == '*':
+            # 通配符 - 获取所有属性/元素
+            if isinstance(data, dict):
+                return list(data.values())
+            elif isinstance(data, list):
+                return data
+            else:
+                return []
+        elif data is None:
+            return []
+        elif isinstance(data, dict) and prop in data:
+            return [data[prop]]
+        elif isinstance(data, list):
+            # 对于数组，尝试在每个元素上获取属性
+            results = []
+            for item in data:
+                if isinstance(item, dict) and prop in item:
+                    results.append(item[prop])
+            return results
+        else:
+            return []
+
+    def _process_array_access(self, data: Any, path: str) -> List[Any]:
+        """处理数组访问 [index] 或 [*]"""
+        if not path.startswith('[') or ']' not in path:
+            return []
+
+        close_bracket = path.find(']')
+        index_expr = path[1:close_bracket]
+        remaining = path[close_bracket + 1:]
+
+        if not isinstance(data, list):
+            return []
+
+        results = []
+
+        if index_expr == '*':
+            # 通配符 - 所有数组元素
+            for item in data:
+                if remaining:
+                    results.extend(self._evaluate_simple_path(item, remaining))
+                else:
+                    results.append(item)
+        elif index_expr.isdigit():
+            # 数字索引
+            index = int(index_expr)
+            if 0 <= index < len(data):
+                item = data[index]
+                if remaining:
+                    results.extend(self._evaluate_simple_path(item, remaining))
+                else:
+                    results.append(item)
+        elif ',' in index_expr:
+            # 多个索引 [0,1,2]
+            indices = [idx.strip() for idx in index_expr.split(',')]
+            for idx_str in indices:
+                if idx_str.isdigit():
+                    idx = int(idx_str)
+                    if 0 <= idx < len(data):
+                        item = data[idx]
+                        if remaining:
+                            results.extend(self._evaluate_simple_path(item, remaining))
+                        else:
+                            results.append(item)
+        elif ':' in index_expr:
+            # 切片 [start:end:step]
+            results.extend(self._process_slice(data, index_expr, remaining))
+        elif index_expr.startswith('?('):
+            # 过滤器
+            filter_expr = index_expr[2:-1]  # 移除 ?( 和 )
+            results.extend(self._apply_filter(data, filter_expr, remaining))
+        else:
+            # 其他情况，尝试作为属性过滤器
+            results.extend(self._apply_filter(data, index_expr, remaining))
+
+        return results
+
+    def _process_slice(self, data: list, slice_expr: str, remaining: str) -> List[Any]:
+        """处理数组切片"""
+        parts = slice_expr.split(':')
+        start = int(parts[0]) if parts[0] else 0
+        end = int(parts[1]) if len(parts) > 1 and parts[1] else len(data)
+        step = int(parts[2]) if len(parts) > 2 and parts[2] else 1
+
+        results = []
+        for i in range(start, end, step):
+            if i < len(data):
+                item = data[i]
+                if remaining:
+                    results.extend(self._evaluate_simple_path(item, remaining))
+                else:
+                    results.append(item)
+        return results
+
+    def _handle_slice(self, data: List[Any], slice_expr: str, remaining: str) -> List[Any]:
+        """处理数组切片操作"""
+        if not isinstance(data, list):
+            return []
+
+        parts = slice_expr.split(':')
+
+        # 解析起始位置
+        start = int(parts[0]) if parts[0] else 0
+        if start < 0:
+            start = max(0, len(data) + start)
+
+        # 解析结束位置
+        end = int(parts[1]) if len(parts) > 1 and parts[1] else len(data)
+        if end < 0:
+            end = max(0, len(data) + end)
+
+        # 解析步长
+        step = int(parts[2]) if len(parts) > 2 and parts[2] else 1
+
+        results = []
+        for i in range(start, end, step):
+            if 0 <= i < len(data):
+                results.extend(self._evaluate_path(data[i], remaining))
+
+        return results
+
+    def _apply_filter(self, data: List[Any], filter_expr: str, remaining: str) -> List[Any]:
+        """应用过滤器表达式"""
+        if not isinstance(data, list):
+            return []
+
+        results = []
+
+        for item in data:
+            if self._matches_filter(item, filter_expr):
+                results.extend(self._evaluate_path(item, remaining))
+
+        return results
+
+    def _matches_filter(self, item: Any, filter_expr: str) -> bool:
+        """检查项目是否匹配过滤器条件"""
+        if not isinstance(item, dict):
+            return False
+
+        # 处理属性存在性检查 ?(@.isbn)
+        if filter_expr.replace(' ', '') == '.isbn' or filter_expr == 'isbn':
+            return 'isbn' in item
+
+        # 处理相等比较 ==
+        if '==' in filter_expr:
+            parts = filter_expr.split('==', 1)
+            prop = parts[0].replace('@.', '').replace('.', '').strip()
+            value = parts[1].strip().strip('"\'')
+
+            if prop in item:
+                if isinstance(item[prop], (int, float)):
+                    try:
+                        return float(item[prop]) == float(value)
+                    except ValueError:
+                        return str(item[prop]) == value
+                else:
+                    return str(item[prop]) == value
+
+        # 处理不等比较 !=
+        elif '!=' in filter_expr:
+            parts = filter_expr.split('!=', 1)
+            prop = parts[0].replace('@.', '').replace('.', '').strip()
+            value = parts[1].strip().strip('"\'')
+
+            if prop in item:
+                return str(item[prop]) != value
+
+        # 处理数值比较 <, >, <=, >=
+        elif '<=' in filter_expr:
+            parts = filter_expr.split('<=', 1)
+            prop = parts[0].replace('@.', '').replace('.', '').strip()
+            value = parts[1].strip()
+
+            if prop in item and isinstance(item[prop], (int, float)):
+                try:
+                    return float(item[prop]) <= float(value)
+                except ValueError:
+                    return False
+
+        elif '>=' in filter_expr:
+            parts = filter_expr.split('>=', 1)
+            prop = parts[0].replace('@.', '').replace('.', '').strip()
+            value = parts[1].strip()
+
+            if prop in item and isinstance(item[prop], (int, float)):
+                try:
+                    return float(item[prop]) >= float(value)
+                except ValueError:
+                    return False
+
+        elif '<' in filter_expr and not '<=' in filter_expr:
+            parts = filter_expr.split('<', 1)
+            prop = parts[0].replace('@.', '').replace('.', '').strip()
+            value = parts[1].strip()
+
+            if prop in item and isinstance(item[prop], (int, float)):
+                try:
+                    return float(item[prop]) < float(value)
+                except ValueError:
+                    return False
+
+        elif '>' in filter_expr and not '>=' in filter_expr:
+            parts = filter_expr.split('>', 1)
+            prop = parts[0].replace('@.', '').replace('.', '').strip()
+            value = parts[1].strip()
+
+            if prop in item and isinstance(item[prop], (int, float)):
+                try:
+                    return float(item[prop]) > float(value)
+                except ValueError:
+                    return False
+
+        # 处理正则表达式匹配 =~
+        elif '=~' in filter_expr:
+            parts = filter_expr.split('=~', 1)
+            prop = parts[0].replace('@.', '').replace('.', '').strip()
+            pattern = parts[1].strip().strip('/')
+
+            if prop in item:
+                import re
+                try:
+                    # 检查是否有标志
+                    if '/' in pattern and pattern.rfind('/') > pattern.find('/'):
+                        regex_parts = pattern.rsplit('/', 1)
+                        pattern_str = regex_parts[0]
+                        flags = regex_parts[1] if len(regex_parts) > 1 else ''
+                        re_flags = re.IGNORECASE if 'i' in flags else 0
+                        return bool(re.search(pattern_str, str(item[prop]), re_flags))
+                    else:
+                        return bool(re.search(pattern, str(item[prop])))
+                except re.error:
+                    return False
+
+        return False
+

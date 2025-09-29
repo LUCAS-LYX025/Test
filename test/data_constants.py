@@ -126,7 +126,7 @@ TOOL_CATEGORIES = {
         "description": "正则测试、模式匹配、替换操作",
         "color": "#9f7aea"
     },
-    "JSON数据对比工具": {
+    "JSON处理工具": {
         "icon": "📝",
         "description": "JSON格式验证、差异比较、格式化",
         "color": "#f56565"
