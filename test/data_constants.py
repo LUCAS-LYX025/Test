@@ -148,7 +148,7 @@ TOOL_CATEGORIES = {
     }
 }
 
-# CSS样式
+# # CSS样式
 CSS_STYLES = """
 <style>
     /* 全局样式 */
@@ -354,6 +354,50 @@ CSS_STYLES = """
         .main-header {
             font-size: 2rem;
         }
+    }
+
+    /* 卡片按钮样式 */
+    .card-button {
+        background: white !important;
+        color: #2d3748 !important;
+        border: 1px solid #e2e8f0 !important;
+        padding: 1.5rem !important;
+        border-radius: 16px !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 180px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
+    }
+
+    .card-button:hover {
+        transform: translateY(-5px) !important;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15) !important;
+        border-color: #667eea !important;
+        background: white !important;
+        color: #2d3748 !important;
+    }
+
+    /* 选中状态的卡片按钮 */
+    .selected-card-button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border: 2px solid #4c51bf !important;
+        transform: scale(1.02) !important;
+        box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4) !important;
+    }
+
+    .selected-card-button:hover {
+        background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%) !important;
+        color: white !important;
+        transform: scale(1.02) !important;
+        box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4) !important;
     }
 </style>
 """
