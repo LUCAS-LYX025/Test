@@ -169,34 +169,11 @@ for category, info in TOOL_CATEGORIES.items():
     with cols[col_index]:
         is_selected = st.session_state.selected_tool == category
 
-        # 动态生成按钮样式
         button_style = f"""
         <style>
-            div[data-testid="stButton"]:has(button[key="select_{category}"]) button {{
+            button[key="select_{category}"] {{
                 background: {'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' if is_selected else 'white'} !important;
                 color: {'white' if is_selected else '#2d3748'} !important;
-                border: {'2px solid #4c51bf' if is_selected else '1px solid #e2e8f0'} !important;
-                padding: 1.5rem !important;
-                border-radius: 16px !important;
-                font-weight: 600 !important;
-                width: 100% !important;
-                height: auto !important;
-                min-height: 180px !important;
-                display: flex !important;
-                flex-direction: column !important;
-                align-items: center !important;
-                justify-content: center !important;
-                text-align: center !important;
-                box-shadow: {'0 15px 35px rgba(102, 126, 234, 0.4)' if is_selected else '0 10px 25px rgba(0,0,0,0.1)'} !important;
-                transform: {'scale(1.02)' if is_selected else 'none'} !important;
-            }}
-
-            div[data-testid="stButton"]:has(button[key="select_{category}"]):hover button {{
-                transform: {'scale(1.02)' if is_selected else 'translateY(-5px)'} !important;
-                box-shadow: {'0 15px 35px rgba(102, 126, 234, 0.4)' if is_selected else '0 20px 40px rgba(0,0,0,0.15)'} !important;
-                background: {'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)' if is_selected else 'white'} !important;
-                color: {'white' if is_selected else '#2d3748'} !important;
-                border-color: {'#4c51bf' if is_selected else '#667eea'} !important;
             }}
         </style>
         """
@@ -206,7 +183,6 @@ for category, info in TOOL_CATEGORIES.items():
                 f"{info['icon']} **{category}**\n\n{info['description']}",
                 key=f"select_{category}",
                 use_container_width=True,
-                help=f"点击进入{category}"
         ):
             st.session_state.selected_tool = category
             st.rerun()
