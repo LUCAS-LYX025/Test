@@ -105,7 +105,7 @@ GENDERS = ["随机", "男", "女"]
 
 # 工具类别定义
 
-TOOL_CATEGoRIES = {
+TOOL_CATEGORIES = {
     "数据生成工具": {
         "icon": "🎲",
         "description": "生成测试数据、随机内容、模拟用户信息",
@@ -201,6 +201,25 @@ CSS_STYLES = """
         transform: translateY(-5px);
         box-shadow: 0 20px 40px rgba(0,0,0,0.15);
         border-color: #667eea;
+    }
+    /* 选中的卡片样式 */
+    .tool-card.selected {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: #4c51bf;
+        transform: scale(1.02);
+        box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+    }
+
+    .tool-card.selected .tool-icon {
+        color: white;
+    }
+
+    .tool-card.selected .tool-title {
+        color: white;
+    }
+
+    .tool-card.selected .tool-desc {
+        color: rgba(255, 255, 255, 0.9);
     }
 
     .tool-icon {

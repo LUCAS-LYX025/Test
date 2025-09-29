@@ -16,7 +16,7 @@ import sys
 print(sys.path)
 sys.path.append('/mount/src/test/test')
 from data_constants import PROVINCES, COUNTRIES, CATEGORIES, PROVINCE_MAP, TO_SECONDS, RANDOM_STRING_TYPES, \
-    PASSWORD_OPTIONS, DOMAINS_PRESET, PHONE_TYPES, GENDERS, TOOL_CATEGoRIES, CSS_STYLES, HEADLINE_STYLES
+    PASSWORD_OPTIONS, DOMAINS_PRESET, PHONE_TYPES, GENDERS, TOOL_CATEGORIES, CSS_STYLES, HEADLINE_STYLES
 from datetime_utils import DateTimeUtils
 from json_file_utils import JSONFileUtils
 from collections import Counter
@@ -151,8 +151,6 @@ def display_generated_results(title, content, filename_prefix):
             mime="text/plain"
         )
 
-
-# ================ 主页面布局 ================
 # 初始化session state
 if 'selected_tool' not in st.session_state:
     st.session_state.selected_tool = "数据生成工具"
@@ -167,12 +165,27 @@ st.markdown('<div class="sub-header">🚀 可用工具</div>', unsafe_allow_html
 cols = st.columns(3)
 col_index = 0
 
-for category, info in TOOL_CATEGoRIES.items():
+# 为每个卡片创建一个自定义组件
+for category, info in TOOL_CATEGORIES.items():
     with cols[col_index]:
-        # 使用st.button创建可点击的卡片
+        # 使用st.button创建可点击的卡片，添加选中的视觉反馈
+        button_style = """
+        <style>
+            div[data-testid*="{}"] button {{
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                color: white !important;
+                border: 2px solid #4c51bf !important;
+                transform: scale(1.02);
+            }}
+        </style>
+        """.format(f"select_{category}")
+
+        if st.session_state.selected_tool == category:
+            st.markdown(button_style, unsafe_allow_html=True)
+
         if st.button(
                 f"{info['icon']} **{category}**\n\n{info['description']}",
-                key=f"btn_{category}",
+                key=f"select_{category}",
                 use_container_width=True,
                 help=f"点击进入{category}"
         ):
@@ -187,7 +200,7 @@ st.markdown("---")
 tool_category = st.session_state.selected_tool
 
 # 显示当前选择的工具
-st.markdown(f'<div class="sub-header">{TOOL_CATEGoRIES[tool_category]["icon"]} {tool_category}</div>',
+st.markdown(f'<div class="sub-header">{TOOL_CATEGORIES[tool_category]["icon"]} {tool_category}</div>',
             unsafe_allow_html=True)
 
 # === 工具功能实现 ===
