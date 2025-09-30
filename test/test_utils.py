@@ -3,8 +3,6 @@ import json
 import re
 from datetime import timedelta
 import time
-from io import StringIO
-import matplotlib.pyplot as plt
 import streamlit.components.v1 as components
 from difflib import Differ
 import html
@@ -49,6 +47,47 @@ st.markdown(CSS_STYLES, unsafe_allow_html=True)
 
 
 # ================ 辅助函数 ================
+# 过滤辅助函数
+def _apply_text_filters(line, log_levels, ip_filter, status_codes, show_only_errors, hide_debug):
+    """应用文本过滤器"""
+    include_line = True
+
+    # 日志级别过滤
+    if log_levels:
+        level_match = False
+        if "错误" in log_levels and any(word in line.upper() for word in ['ERROR', 'ERR']):
+            level_match = True
+        if "警告" in log_levels and any(word in line.upper() for word in ['WARN', 'WARNING']):
+            level_match = True
+        if "信息" in log_levels and any(word in line.upper() for word in ['INFO', 'INFORMATION']):
+            level_match = True
+        if "调试" in log_levels and any(word in line.upper() for word in ['DEBUG', 'DBG']):
+            level_match = True
+        include_line = include_line and level_match
+
+    # IP地址过滤
+    if ip_filter and include_line:
+        if ip_filter not in line:
+            include_line = False
+
+    # 状态码过滤
+    if status_codes and include_line:
+        codes = [code.strip() for code in status_codes.split(',')]
+        code_match = any(f" {code} " in line or line.endswith(f" {code}") or f" {code}" in line for code in codes)
+        include_line = include_line and code_match
+
+    # 其他条件
+    if show_only_errors and include_line:
+        if not any(word in line.upper() for word in ['ERROR', 'ERR', 'FAIL', 'EXCEPTION']):
+            include_line = False
+
+    if hide_debug and include_line:
+        if any(word in line.upper() for word in ['DEBUG', 'DBG']):
+            include_line = False
+
+    return include_line
+
+
 def escape_js_string(text):
     """安全转义 JavaScript 字符串"""
     return json.dumps(text)
@@ -1101,87 +1140,561 @@ elif tool_category == "JSON处理工具":
 elif tool_category == "日志分析工具":
     show_doc("log_analyzer")
 
-    import_method = st.radio("日志导入方式", ["文件上传", "直接粘贴"])
-    log_content = ""
+    # 初始化所有session_state变量
+    if 'log_data' not in st.session_state:
+        st.session_state.log_data = None
+    if 'file_info' not in st.session_state:
+        st.session_state.file_info = None
+    if 'filtered_lines' not in st.session_state:
+        st.session_state.filtered_lines = []
+    if 'search_results' not in st.session_state:
+        st.session_state.search_results = []
+    if 'search_count' not in st.session_state:
+        st.session_state.search_count = 0
+    if 'df' not in st.session_state:
+        st.session_state.df = None
+    if 'is_csv' not in st.session_state:
+        st.session_state.is_csv = False
+    if 'csv_columns' not in st.session_state:
+        st.session_state.csv_columns = []
+    if 'json_columns' not in st.session_state:
+        st.session_state.json_columns = []
+    if 'json_fields' not in st.session_state:
+        st.session_state.json_fields = {}
+    # 新增搜索相关状态变量
+    if 'search_keyword' not in st.session_state:
+        st.session_state.search_keyword = ""
+    if 'search_cleared' not in st.session_state:
+        st.session_state.search_cleared = False
 
-    if import_method == "文件上传":
-        uploaded_file = st.file_uploader("选择日志文件", type=['txt', 'log'])
-        if uploaded_file is not None:
-            stringio = StringIO(uploaded_file.getvalue().decode("utf-8"))
-            log_content = stringio.read()
-    else:
-        log_content = st.text_area("粘贴日志内容", height=200)
+    # 使用tab布局
+    tab1, tab2, tab3 = st.tabs(["日志导入", "日志过滤", "关键词搜索"])
 
-    if log_content:
-        st.markdown("**日志统计信息**")
-        lines = log_content.split('\n')
-        total_lines = len(lines)
+    # Tab1: 日志导入
+    with tab1:
+        st.header("日志导入")
 
-        error_count = sum(1 for line in lines if 'ERROR' in line.upper())
-        warn_count = sum(1 for line in lines if 'WARN' in line.upper())
-        info_count = sum(1 for line in lines if
-                         'INFO' in line.upper() and 'ERROR' not in line.upper() and 'WARN' not in line.upper())
+        import_method = st.radio("日志导入方式", ["文件上传", "直接粘贴"])
+        log_content = ""
+        file_info = None
 
-        col1, col2, col3, col4 = st.columns(4)
+        if import_method == "文件上传":
+            uploaded_file = st.file_uploader("选择日志文件", type=['txt', 'log', 'csv'],
+                                             help="支持 txt, log, csv 格式文件")
+
+            if uploaded_file is not None:
+                # 文件信息
+                import datetime
+                import json
+
+                current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                file_info = {
+                    "文件名": uploaded_file.name,
+                    "文件大小": f"{uploaded_file.size / 1024:.2f} KB",
+                    "文件类型": uploaded_file.type or "未知类型",
+                    "上传时间": current_time
+                }
+
+                # 文件预览
+                st.subheader("文件预览")
+                preview_lines = 10
+
+                try:
+                    if uploaded_file.name.endswith('.csv'):
+                        # CSV文件处理
+                        import pandas as pd
+
+                        df = pd.read_csv(uploaded_file)
+                        st.write("前10行数据预览:")
+                        st.dataframe(df.head(preview_lines))
+
+                        # 保存DataFrame和列信息
+                        st.session_state.df = df
+                        st.session_state.csv_columns = df.columns.tolist()
+                        st.session_state.is_csv = True
+
+                        # 检测JSON格式的列并提取字段
+                        st.session_state.json_columns = []
+                        st.session_state.json_fields = {}
+
+                        for column in df.columns:
+                            # 检查列中是否包含JSON格式的数据
+                            json_sample = None
+                            for value in df[column].dropna().head(5):
+                                if isinstance(value, str) and value.strip().startswith('{') and value.strip().endswith(
+                                        '}'):
+                                    try:
+                                        json_data = json.loads(value)
+                                        if isinstance(json_data, dict):
+                                            json_sample = json_data
+                                            break
+                                    except:
+                                        continue
+
+                            if json_sample:
+                                st.session_state.json_columns.append(column)
+                                st.session_state.json_fields[column] = list(json_sample.keys())
+                                st.info(f"检测到列 '{column}' 包含JSON数据，提取到 {len(json_sample.keys())} 个字段")
+
+                        # 将DataFrame转换为文本格式用于显示
+                        log_content = ""
+                        for _, row in df.iterrows():
+                            log_content += " | ".join([str(x) for x in row]) + "\n"
+                    else:
+                        # 文本文件处理
+                        content = uploaded_file.getvalue().decode("utf-8")
+                        lines = content.split('\n')
+                        preview_content = "\n".join(lines[:preview_lines])
+                        st.text_area("预览内容", preview_content, height=150, key="preview")
+                        log_content = content
+                        st.session_state.is_csv = False
+                        st.session_state.df = None
+                        st.session_state.csv_columns = []
+                        st.session_state.json_columns = []
+                        st.session_state.json_fields = {}
+
+                except Exception as e:
+                    st.error(f"文件读取错误: {e}")
+                    log_content = ""
+
+                # 显示文件信息
+                if file_info:
+                    st.subheader("文件信息")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"**文件名:** {file_info['文件名']}")
+                        st.write(f"**文件大小:** {file_info['文件大小']}")
+                    with col2:
+                        st.write(f"**文件类型:** {file_info['文件类型']}")
+                        st.write(f"**上传时间:** {file_info['上传时间']}")
+
+                # 自动导入日志数据
+                if log_content and uploaded_file is not None:
+                    st.session_state.log_data = log_content
+                    st.session_state.file_info = file_info
+                    st.session_state.filtered_lines = []
+                    st.session_state.search_results = []
+                    st.session_state.search_count = 0
+
+        else:  # 直接粘贴
+            log_content = st.text_area("粘贴日志内容", height=200,
+                                       placeholder="请将日志内容粘贴到此处...",
+                                       key="paste_content")
+
+            # 自动导入粘贴的日志内容
+            if log_content:
+                st.session_state.log_data = log_content
+                st.session_state.file_info = None
+                st.session_state.filtered_lines = []
+                st.session_state.search_results = []
+                st.session_state.search_count = 0
+                st.session_state.is_csv = False
+                st.session_state.df = None
+                st.session_state.csv_columns = []
+                st.session_state.json_columns = []
+                st.session_state.json_fields = {}
+
+    # 检查是否有导入的日志数据并显示统计信息
+    if st.session_state.log_data:
+        log_content = st.session_state.log_data
+
+        # 根据文件类型处理数据
+        if st.session_state.is_csv and st.session_state.df is not None:
+            # CSV数据
+            df = st.session_state.df
+            lines = []
+            for _, row in df.iterrows():
+                line = " | ".join([str(x) for x in row])
+                lines.append(line)
+            total_lines = len(df)
+        else:
+            # 文本数据
+            lines = log_content.split('\n')
+            total_lines = len(lines)
+
+        # 在主内容区显示统计信息
+        st.header("📊 日志统计信息")
+
+        # 改进的日志级别统计
+        error_count = sum(1 for line in lines if any(word in line.upper() for word in ['ERROR', 'ERR']))
+        warn_count = sum(1 for line in lines if any(word in line.upper() for word in ['WARN', 'WARNING']))
+        info_count = sum(1 for line in lines if any(word in line.upper() for word in ['INFO', 'INFORMATION']))
+        debug_count = sum(1 for line in lines if any(word in line.upper() for word in ['DEBUG', 'DBG']))
+        other_count = total_lines - error_count - warn_count - info_count - debug_count
+
+        # 统计指标
+        col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
             st.metric("总行数", total_lines)
         with col2:
-            st.metric("错误数量", error_count)
+            st.metric("错误", error_count, delta_color="off")
         with col3:
-            st.metric("警告数量", warn_count)
+            st.metric("警告", warn_count, delta_color="off")
         with col4:
-            st.metric("信息数量", info_count)
+            st.metric("信息", info_count, delta_color="off")
+        with col5:
+            st.metric("调试", debug_count, delta_color="off")
 
-        if error_count + warn_count + info_count > 0:
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
-            levels = ['ERROR', 'WARN', 'INFO', '其他']
-            counts = [error_count, warn_count, info_count, total_lines - error_count - warn_count - info_count]
-            ax1.pie(counts, labels=levels, autopct='%1.1f%%', startangle=90)
-            ax1.set_title('日志级别分布')
-            ax2.bar(levels, counts, color=['red', 'orange', 'blue', 'gray'])
-            ax2.set_title('日志级别数量')
-            ax2.set_ylabel('数量')
-            st.pyplot(fig)
+        # Tab2: 日志过滤
+        with tab2:
+            st.header("日志过滤")
 
-        st.markdown("**日志过滤**")
-        col1, col2 = st.columns(2)
-        with col1:
-            filter_level = st.multiselect("日志级别", ["ERROR", "WARN", "INFO", "DEBUG"], default=["ERROR", "WARN"])
-            keyword = st.text_input("关键词搜索")
-        with col2:
-            use_regex = st.checkbox("使用正则表达式")
-            case_sensitive = st.checkbox("大小写敏感")
+            if st.session_state.is_csv and st.session_state.csv_columns:
+                # CSV文件的字段筛选
+                st.subheader("CSV字段筛选")
 
-        if st.button("应用过滤", use_container_width=True):
-            filtered_lines = []
-            for line in lines:
-                level_match = any(level in line for level in filter_level) if filter_level else True
+                # 选择筛选类型：普通列或JSON字段
+                filter_type = st.radio("筛选类型", ["普通列筛选", "JSON字段筛选"], horizontal=True)
 
-                if level_match:
-                    if keyword:
-                        if use_regex:
-                            try:
-                                if re.search(keyword, line, 0 if case_sensitive else re.IGNORECASE):
-                                    filtered_lines.append(line)
-                            except re.error:
-                                st.error("正则表达式语法错误")
-                                break
+                if filter_type == "普通列筛选":
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        selected_column = st.selectbox(
+                            "选择筛选字段",
+                            st.session_state.csv_columns,
+                            help="选择要筛选的CSV列"
+                        )
+
+                        filter_value = st.text_input(
+                            "筛选值",
+                            placeholder=f"输入{selected_column}的筛选值...",
+                            help="支持部分匹配"
+                        )
+
+                    with col2:
+                        # 数值范围筛选（如果字段是数值类型）
+                        if (st.session_state.df is not None and
+                                selected_column in st.session_state.df.columns and
+                                pd.api.types.is_numeric_dtype(st.session_state.df[selected_column])):
+                            min_val = float(st.session_state.df[selected_column].min())
+                            max_val = float(st.session_state.df[selected_column].max())
+                            value_range = st.slider(
+                                f"{selected_column}范围",
+                                min_val, max_val, (min_val, max_val)
+                            )
                         else:
-                            if case_sensitive:
-                                if keyword in line:
-                                    filtered_lines.append(line)
+                            value_range = None
+
+                else:  # JSON字段筛选
+                    if st.session_state.json_columns:
+                        col1, col2 = st.columns(2)
+
+                        with col1:
+                            selected_json_column = st.selectbox(
+                                "选择JSON列",
+                                st.session_state.json_columns,
+                                help="选择包含JSON数据的列"
+                            )
+
+                            if selected_json_column in st.session_state.json_fields:
+                                json_fields = st.session_state.json_fields[selected_json_column]
+                                selected_json_field = st.selectbox(
+                                    "选择JSON字段",
+                                    json_fields,
+                                    help="选择要筛选的JSON字段"
+                                )
+
+                                json_filter_value = st.text_input(
+                                    "字段筛选值",
+                                    placeholder=f"输入{selected_json_field}的值...",
+                                    help="支持部分匹配"
+                                )
                             else:
-                                if keyword.lower() in line.lower():
-                                    filtered_lines.append(line)
+                                st.warning("未找到JSON字段")
+                                selected_json_field = None
+                                json_filter_value = ""
+
+                        with col2:
+                            # JSON字段的数值范围筛选
+                            if (selected_json_field and
+                                    st.session_state.df is not None and
+                                    selected_json_column in st.session_state.df.columns):
+                                # 尝试提取数值字段进行范围筛选
+                                try:
+                                    # 提取该字段的所有数值
+                                    numeric_values = []
+                                    for value in st.session_state.df[selected_json_column].dropna():
+                                        if isinstance(value, str) and value.strip().startswith(
+                                                '{') and value.strip().endswith('}'):
+                                            try:
+                                                json_data = json.loads(value)
+                                                if (selected_json_field in json_data and
+                                                        isinstance(json_data[selected_json_field], (int, float))):
+                                                    numeric_values.append(json_data[selected_json_field])
+                                            except:
+                                                continue
+
+                                    if numeric_values:
+                                        min_val = min(numeric_values)
+                                        max_val = max(numeric_values)
+                                        json_value_range = st.slider(
+                                            f"{selected_json_field}范围",
+                                            min_val, max_val, (min_val, max_val),
+                                            key="json_range"
+                                        )
+                                    else:
+                                        json_value_range = None
+                                        st.info("该JSON字段不包含数值数据")
+                                except:
+                                    json_value_range = None
                     else:
-                        filtered_lines.append(line)
+                        st.info("未检测到包含JSON数据的列")
 
-            st.markdown("**过滤结果**")
-            st.text_area("", "\n".join(filtered_lines), height=300)
-            st.metric("匹配行数", len(filtered_lines))
+            col1, col2 = st.columns(2)
 
-            if st.button("导出结果", use_container_width=True):
-                st.success(f"已找到 {len(filtered_lines)} 行匹配结果（导出功能模拟）")
+            with col1:
+                # 日志级别筛选
+                log_levels = st.multiselect(
+                    "日志级别",
+                    ["错误", "警告", "信息", "调试"],
+                    default=["错误", "警告"],
+                    help="选择要显示的日志级别"
+                )
+
+                # IP地址筛选
+                ip_filter = st.text_input(
+                    "IP地址/IP段",
+                    placeholder="例如: 192.168.1.1 或 192.168.1.0/24",
+                    help="支持单个IP或IP段筛选"
+                )
+
+            with col2:
+                # 状态码筛选
+                status_codes = st.text_input(
+                    "状态码",
+                    placeholder="例如: 200,404,500",
+                    help="用逗号分隔多个状态码"
+                )
+
+                # 其他筛选选项
+                st.subheader("其他筛选条件")
+                show_only_errors = st.checkbox("仅显示错误相关日志")
+                hide_debug = st.checkbox("隐藏调试信息")
+
+            # 应用过滤按钮
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                if st.button("应用过滤条件", key="filter_btn", use_container_width=True):
+                    filtered_lines = []
+
+                    if st.session_state.is_csv and st.session_state.df is not None:
+                        # CSV数据过滤
+                        filtered_df = st.session_state.df.copy()
+
+                        if filter_type == "普通列筛选":
+                            # 普通列筛选
+                            if filter_value and selected_column:
+                                filtered_df = filtered_df[
+                                    filtered_df[selected_column].astype(str).str.contains(filter_value, case=False,
+                                                                                          na=False)]
+
+                            # 数值范围筛选
+                            if (value_range and
+                                    selected_column in filtered_df.columns and
+                                    pd.api.types.is_numeric_dtype(filtered_df[selected_column])):
+                                filtered_df = filtered_df[
+                                    (filtered_df[selected_column] >= value_range[0]) &
+                                    (filtered_df[selected_column] <= value_range[1])
+                                    ]
+
+                        else:  # JSON字段筛选
+                            if (selected_json_column and selected_json_field and
+                                    json_filter_value and selected_json_column in filtered_df.columns):
+
+                                def filter_json_rows(row):
+                                    try:
+                                        if pd.isna(row[selected_json_column]):
+                                            return False
+                                        if isinstance(row[selected_json_column], str):
+                                            json_data = json.loads(row[selected_json_column])
+                                            if selected_json_field in json_data:
+                                                field_value = str(json_data[selected_json_field])
+                                                return json_filter_value.lower() in field_value.lower()
+                                    except:
+                                        pass
+                                    return False
+
+
+                                # 应用JSON过滤
+                                mask = filtered_df.apply(filter_json_rows, axis=1)
+                                filtered_df = filtered_df[mask]
+
+                                # JSON数值范围筛选
+                                if json_value_range:
+                                    def filter_json_numeric(row):
+                                        try:
+                                            if pd.isna(row[selected_json_column]):
+                                                return False
+                                            if isinstance(row[selected_json_column], str):
+                                                json_data = json.loads(row[selected_json_column])
+                                                if (selected_json_field in json_data and
+                                                        isinstance(json_data[selected_json_field], (int, float))):
+                                                    value = json_data[selected_json_field]
+                                                    return json_value_range[0] <= value <= json_value_range[1]
+                                        except:
+                                            pass
+                                        return False
+
+
+                                    mask_numeric = filtered_df.apply(filter_json_numeric, axis=1)
+                                    filtered_df = filtered_df[mask_numeric]
+
+                        # 转换为文本行并应用文本过滤
+                        for _, row in filtered_df.iterrows():
+                            line = " | ".join([str(x) for x in row])
+                            if _apply_text_filters(line, log_levels, ip_filter, status_codes, show_only_errors,
+                                                   hide_debug):
+                                filtered_lines.append(line)
+                    else:
+                        # 文本数据过滤
+                        for line in lines:
+                            if _apply_text_filters(line, log_levels, ip_filter, status_codes, show_only_errors,
+                                                   hide_debug):
+                                filtered_lines.append(line)
+
+                    st.session_state.filtered_lines = filtered_lines
+                    st.success(f"过滤完成，找到 {len(filtered_lines)} 行日志")
+
+            # 显示过滤结果
+            if st.session_state.filtered_lines:
+                st.subheader(f"过滤结果 (共 {len(st.session_state.filtered_lines)} 行)")
+                st.text_area("过滤后的日志", "\n".join(st.session_state.filtered_lines), height=400, key="filtered_output")
+
+                # 导出结果
+                st.download_button(
+                    label="导出过滤结果",
+                    data="\n".join(st.session_state.filtered_lines),
+                    file_name=f"filtered_logs_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
+            else:
+                st.info("暂无过滤结果，请先应用过滤条件")
+
+        # Tab3: 关键词搜索
+        with tab3:
+            st.header("关键词搜索")
+
+            # 处理清空搜索条件
+            if st.session_state.search_cleared:
+                # 使用唯一的key来重新创建小部件
+                search_key = f"search_input_{datetime.datetime.now().timestamp()}"
+                case_key = f"case_sensitive_{datetime.datetime.now().timestamp()}"
+                whole_key = f"whole_word_{datetime.datetime.now().timestamp()}"
+                regex_key = f"use_regex_{datetime.datetime.now().timestamp()}"
+
+                # 重置标志
+                st.session_state.search_cleared = False
+            else:
+                search_key = "search_input"
+                case_key = "case_sensitive"
+                whole_key = "whole_word"
+                regex_key = "use_regex"
+
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                # 搜索关键词输入框
+                search_keyword = st.text_input(
+                    "搜索关键词",
+                    value="",  # 总是从空开始，由session_state控制实际值
+                    placeholder="输入要搜索的关键词...",
+                    help="支持普通文本和正则表达式搜索",
+                    key=search_key
+                )
+
+            with col2:
+                st.write("搜索选项")
+                # 搜索选项 - 使用默认值False
+                case_sensitive = st.checkbox("区分大小写", value=False, key=case_key)
+                whole_word = st.checkbox("全词匹配", value=False, key=whole_key)
+                use_regex = st.checkbox("正则表达式", value=False, key=regex_key)
+
+            # 按钮布局
+            col1, col2, col3 = st.columns([1, 1, 1])
+            with col1:
+                if st.button("执行搜索", type="primary", use_container_width=True):
+                    if search_keyword:
+                        # 更新搜索关键词状态
+                        st.session_state.search_keyword = search_keyword
+
+                        search_results = []
+
+                        for line in lines:
+                            search_text = line
+                            original_line = line
+
+                            if not case_sensitive:
+                                search_text = search_text.lower()
+                                keyword = search_keyword.lower()
+                            else:
+                                keyword = search_keyword
+
+                            match_found = False
+
+                            if use_regex:
+                                try:
+                                    if re.search(keyword, search_text, 0 if case_sensitive else re.IGNORECASE):
+                                        match_found = True
+                                except re.error as e:
+                                    st.error(f"正则表达式错误: {e}")
+                                    break
+                            elif whole_word:
+                                # 全词匹配
+                                words = re.findall(r'\b\w+\b', search_text)
+                                if any(word == keyword for word in words):
+                                    match_found = True
+                            else:
+                                # 普通搜索
+                                if keyword in search_text:
+                                    match_found = True
+
+                            if match_found:
+                                search_results.append(original_line)
+
+                        st.session_state.search_results = search_results
+                        st.session_state.search_count = len(search_results)
+                        if search_results:
+                            st.success(f"找到 {len(search_results)} 条匹配结果")
+                        else:
+                            st.warning("未找到匹配的搜索结果")
+
+                    else:
+                        st.warning("请输入搜索关键词")
+
+            with col2:
+                if st.button("清空搜索条件", key="clear_search", use_container_width=True):
+                    # 清空所有搜索相关的状态
+                    st.session_state.search_results = []
+                    st.session_state.search_count = 0
+                    st.session_state.search_keyword = ""
+                    st.session_state.search_cleared = True
+                    st.success("搜索条件已清空！")
+                    st.rerun()
+
+            # 显示搜索结果
+            if st.session_state.search_results:
+                st.subheader(f"搜索结果 (共 {len(st.session_state.search_results)} 条)")
+
+                # 显示搜索结果
+                result_text = "\n".join(st.session_state.search_results)
+                st.text_area("搜索结果", result_text, height=400, key="search_output")
+
+                # 导出搜索结果
+                st.download_button(
+                    label="导出搜索结果",
+                    data=result_text,
+                    file_name=f"search_results_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
+            elif st.session_state.search_count == 0 and st.session_state.search_keyword:
+                st.info("暂无搜索结果")
+
+    else:
+        st.info("请先导入日志数据以开始分析")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1826,7 +2339,6 @@ elif tool_category == "IP/域名查询工具":
                     st.error(f"反查失败: {result['error']}")
 
     st.markdown('</div>', unsafe_allow_html=True)
-
 # 页脚
 st.markdown("---")
 st.markdown("""
