@@ -17,8 +17,8 @@ import sys
 print(sys.path)
 sys.path.append('/mount/src/test/test')
 from data_constants import PROVINCES, COUNTRIES, CATEGORIES, PROVINCE_MAP, TO_SECONDS, RANDOM_STRING_TYPES, \
-    PASSWORD_OPTIONS, DOMAINS_PRESET, GENDERS, TOOL_CATEGORIES, CSS_STYLES, HEADLINE_STYLES, \
-    PROVINCE_CITY_AREA_CODES
+    PASSWORD_OPTIONS, DOMAINS_PRESET, GENDERS, TOOL_CATEGORIES, CSS_STYLES, HEADLINE_STYLES
+from data_constants import PROVINCE_CITY_AREA_CODES
 from datetime_utils import DateTimeUtils
 from json_file_utils import JSONFileUtils
 from collections import Counter
