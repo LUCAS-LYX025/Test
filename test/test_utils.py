@@ -359,7 +359,7 @@ if tool_category == "数据生成工具":
                 display_generated_results(conditions, result_text, "邮箱列表")
         elif data_gen_tool == "电话号码生成器":
             st.markdown('<div class="category-card">📞 电话号码生成器</div>', unsafe_allow_html=True)
-            # 确保 PROVINCES 是列表类型
+            # 确保PROVINCES是列表类型
             PROVINCES = list(PROVINCE_CITY_AREA_CODES.keys())
 
 
