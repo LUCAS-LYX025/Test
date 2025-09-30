@@ -17,7 +17,8 @@ import sys
 print(sys.path)
 sys.path.append('/mount/src/test/test')
 from data_constants import PROVINCES, COUNTRIES, CATEGORIES, PROVINCE_MAP, TO_SECONDS, RANDOM_STRING_TYPES, \
-    PASSWORD_OPTIONS, DOMAINS_PRESET, PHONE_TYPES, GENDERS, TOOL_CATEGORIES, CSS_STYLES, HEADLINE_STYLES
+    PASSWORD_OPTIONS, DOMAINS_PRESET, GENDERS, TOOL_CATEGORIES, CSS_STYLES, HEADLINE_STYLES, \
+    PROVINCE_CITY_AREA_CODES
 from datetime_utils import DateTimeUtils
 from json_file_utils import JSONFileUtils
 from collections import Counter
@@ -356,49 +357,131 @@ if tool_category == "数据生成工具":
 
                 result_text = "\n".join(results)
                 display_generated_results(conditions, result_text, "邮箱列表")
-
         elif data_gen_tool == "电话号码生成器":
             st.markdown('<div class="category-card">📞 电话号码生成器</div>', unsafe_allow_html=True)
+            # 确保 PROVINCES 是列表类型
+            PROVINCES = list(PROVINCE_CITY_AREA_CODES.keys())
+
+
+            def get_cities_by_province(province):
+                """根据省份获取城市列表"""
+                return list(PROVINCE_CITY_AREA_CODES.get(province, {}).keys())
+
+
+            def get_area_code(province, city):
+                """根据省份和城市获取区号"""
+                return PROVINCE_CITY_AREA_CODES.get(province, {}).get(city, "")
+
 
             col1, col2 = st.columns(2)
             with col1:
-                phone_type = st.selectbox("号码类型", PHONE_TYPES)
+                phone_type = st.selectbox("号码类型", ["手机号", "座机", "国际号码"])
+
+                # 初始化变量
+                operator = None
+                country = None
+                province = None
+                city = None
+                area_code = None
 
                 if phone_type == "国际号码":
                     country = st.selectbox("选择国家", COUNTRIES)
                 elif phone_type == "手机号":
                     operator = st.selectbox("运营商", ["随机", "移动", "联通", "电信", "广电"])
-                else:
-                    operator = st.selectbox("运营商", ["随机", "移动", "联通", "电信", "广电"])
+                elif phone_type == "座机":
+                    # 使用本地定义的 PROVINCES - 确保是列表
+                    province_options = ["随机"] + PROVINCES
+                    province = st.selectbox("选择省份", province_options)
+
+                    if province and province != "随机":
+                        cities = get_cities_by_province(province)
+                        city = st.selectbox("选择城市", ["随机"] + cities)
+
+                        # 如果选择了具体城市，获取对应的区号
+                        if city and city != "随机":
+                            area_code = get_area_code(province, city)
+                            if area_code:
+                                st.success(f"✅ 所选城市区号: {area_code}")
+                            else:
+                                st.warning("⚠️ 未找到该城市的区号")
+                    else:
+                        city = "随机"
+                        st.info("将随机生成区号")
 
                 count = st.number_input("生成数量", min_value=1, max_value=100, value=10)
 
             with col2:
                 if phone_type == "座机":
-                    area_code = st.text_input("区号（可选）", placeholder="例如：0592（厦门）")
-                    conditions = f"运营商: {operator}, 类型: {phone_type}" + (f", 区号: {area_code}" if area_code else "")
+                    if province == "随机":
+                        conditions = f"类型: {phone_type}, 区号: 随机"
+                    elif city == "随机":
+                        conditions = f"类型: {phone_type}, 省份: {province}, 区号: 随机"
+                    else:
+                        conditions = f"类型: {phone_type}, 城市: {city}, 区号: {area_code}"
                 elif phone_type == "国际号码":
                     conditions = f"类型: {phone_type}, 国家: {country}"
                 else:
                     conditions = f"运营商: {operator}, 类型: {phone_type}"
+
                 st.write("💡 提示: 生成的号码将匹配相应的号码规则")
 
             if st.button("生成电话号码", key="gen_conditional_phones"):
                 results = []
-                with st.spinner(f"正在生成{count}个号码..."):
-                    for _ in range(count):
-                        if phone_type == "座机":
-                            phone = generator.safe_generate(generator.generate_landline_number, operator,
-                                                            area_code or None)
-                        elif phone_type == "国际号码":
-                            phone = generator.safe_generate(generator.generate_international_phone, country)
-                        else:
-                            phone = generator.safe_generate(generator.generate_conditional_phone, operator)
-                        if phone is not None:
-                            results.append(phone)
+                selected_area_codes = []  # 用于记录实际使用的区号
 
-                result_text = "\n".join(results)
-                display_generated_results(conditions, result_text, "电话号码")
+                with st.spinner(f"正在生成{count}个号码..."):
+                    for i in range(count):
+                        try:
+                            if phone_type == "座机":
+                                # 根据选择确定最终的区号
+                                final_area_code = None
+
+                                if province != "随机":
+                                    if city != "随机" and area_code:
+                                        # 使用具体城市的区号
+                                        final_area_code = area_code
+                                    else:
+                                        # 随机选择该省份下的一个城市区号
+                                        cities = get_cities_by_province(province)
+                                        if cities:
+                                            random_city = random.choice(cities)
+                                            final_area_code = get_area_code(province, random_city)
+
+                                # 记录实际使用的区号
+                                if final_area_code:
+                                    selected_area_codes.append(final_area_code)
+
+                                # 调用生成函数
+                                phone = generator.generate_landline_number(area_code=final_area_code)
+
+                            elif phone_type == "国际号码":
+                                phone = generator.generate_international_phone(country)
+                            else:  # 手机号
+                                phone = generator.generate_conditional_phone(operator)
+
+                            if phone is not None:
+                                results.append(phone)
+
+                        except Exception as e:
+                            # 处理可能的生成错误，继续生成其他号码
+                            st.error(f"生成第 {i + 1} 个号码时出错: {str(e)}")
+                            continue
+
+                if results:
+                    result_text = "\n".join(results)
+
+                    # 删除原来的显示代码，直接使用封装的函数
+                    display_generated_results("电话号码", result_text, "电话号码")
+
+                    # 显示调试信息（实际使用的区号）
+                    if phone_type == "座机" and selected_area_codes:
+                        unique_codes = list(set(selected_area_codes))
+                        st.info(f"实际使用的区号: {', '.join(unique_codes)}")
+
+                    # 显示生成统计
+                    st.success(f"✅ 成功生成 {len(results)} 个电话号码")
+                else:
+                    st.warning("⚠️ 未能生成任何有效的电话号码，请检查参数设置")
 
         elif data_gen_tool == "随机地址生成器":
             st.markdown('<div class="category-card">🏠 随机地址生成器</div>', unsafe_allow_html=True)
