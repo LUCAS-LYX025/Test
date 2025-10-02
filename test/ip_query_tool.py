@@ -420,64 +420,6 @@ class IPQueryTool:
             ]
         }
 
-    # 网络诊断功能
-    def ping_host(self, target, count=4):
-        """Ping目标主机"""
-        try:
-            param = '-n' if os.name == 'nt' else '-c'
-            command = ['ping', param, str(count), target]
-            result = subprocess.run(command, capture_output=True, text=True, timeout=30)
-            return {
-                'success': True,
-                'output': result.stdout,
-                'error': result.stderr
-            }
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'Ping操作超时'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
-
-    def traceroute(self, target, max_hops=30):
-        """路由追踪"""
-        try:
-            if os.name == 'nt':  # Windows
-                command = ['tracert', '-h', str(max_hops), target]
-            else:  # Linux/Mac
-                command = ['traceroute', '-m', str(max_hops), target]
-
-            result = subprocess.run(command, capture_output=True, text=True, timeout=60)
-            return {
-                'success': True,
-                'output': result.stdout,
-                'error': result.stderr
-            }
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': '路由追踪超时'}
-        except FileNotFoundError:
-            return {'success': False, 'error': '系统不支持traceroute命令'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
-        # WHOIS查询功能
-
-    def whois_query(self, domain):
-        """WHOIS信息查询"""
-        try:
-            # 模拟WHOIS数据
-            whois_data = {
-                '域名': domain,
-                '注册商': '模拟注册商 Inc.',
-                '注册时间': '2020-01-01',
-                '过期时间': '2025-01-01',
-                '更新时间': '2024-01-01',
-                '域名状态': '正常',
-                '名称服务器': [f'ns1.{domain}', f'ns2.{domain}'],
-                '注册人': '隐私保护',
-                '注册组织': '隐私保护服务'
-            }
-
-            return {'success': True, 'data': whois_data}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
 
     def _get_service_name(self, port):
         """获取端口对应的服务名称"""

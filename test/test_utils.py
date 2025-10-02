@@ -1830,8 +1830,8 @@ elif tool_category == "IP/域名查询工具":
     # 创建实例
     ip_tool = IPQueryTool()
 
-    tab1, tab2, tab3, tab4 = st.tabs(
-        ["IP/域名查询", "批量查询", "IPv4转换工具", "WHOIS查询"])
+    tab1, tab2, tab3 = st.tabs(
+        ["IP/域名查询", "批量查询", "IPv4转换工具"])
 
     with tab1:
         st.markdown("**IP/域名基本信息查询**")
@@ -2110,86 +2110,6 @@ elif tool_category == "IP/域名查询工具":
              ▪ 8.8.8.8 → 00001000.00001000.00001000.00001000
 
              """)
-
-    # 新增的WHOIS查询标签页
-    with tab4:
-        st.markdown("**WHOIS信息查询**")
-        st.info("查询域名的注册信息和所有权详情")
-
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            whois_target = st.text_input("查询域名", placeholder="例如: baidu.com", key="whois_target")
-        with col2:
-            st.write("")
-            st.write("")
-            whois_button = st.button("WHOIS查询", use_container_width=True, key="whois_query")
-
-        if whois_button and whois_target:
-            # 验证输入
-            if not whois_target.strip():
-                st.error("请输入要查询的域名")
-                st.stop()
-
-            # 简单的域名格式验证
-            domain_pattern = r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+$'
-            if not re.match(domain_pattern, whois_target.strip()):
-                st.error("请输入有效的域名格式")
-                st.stop()
-
-            with st.spinner("正在查询WHOIS信息..."):
-                result = ip_tool.whois_query(whois_target)
-
-                if result['success']:
-                    st.success("WHOIS查询完成")
-
-                    data = result['data']
-                    st.markdown("### 域名注册信息")
-
-                    # 主要信息显示
-                    cols = st.columns(2)
-                    with cols[0]:
-                        st.metric("域名", data.get('域名', '未知'))
-                        st.metric("注册商", data.get('注册商', '未知'))
-                        st.metric("域名状态", data.get('域名状态', '未知'))
-                    with cols[1]:
-                        st.metric("注册时间", data.get('注册时间', '未知'))
-                        st.metric("过期时间", data.get('过期时间', '未知'))
-                        st.metric("更新时间", data.get('更新时间', '未知'))
-
-                    # 详细信息
-                    st.markdown("#### 详细信息")
-
-                    # 注册人信息
-                    st.markdown("**注册人信息**")
-                    st.markdown(f"""
-                       - 注册人: {data.get('注册人', '未知')}
-                       - 注册组织: {data.get('注册组织', '未知')}
-                       """)
-
-                    # 名称服务器
-                    st.markdown("**名称服务器**")
-                    nameservers = data.get('名称服务器', [])
-                    if nameservers:
-                        for ns in nameservers:
-                            st.markdown(f"- {ns}")
-                    else:
-                        st.markdown("- 未知")
-
-                    # 计算剩余天数（模拟）
-                    try:
-                        from datetime import datetime
-
-                        expire_date = datetime.strptime(data.get('过期时间', '2025-01-01'), '%Y-%m-%d')
-                        remaining_days = (expire_date - datetime.now()).days
-                        if remaining_days < 30:
-                            st.warning(f"⚠️ 域名将在 {remaining_days} 天后过期")
-                        else:
-                            st.info(f"域名还有 {remaining_days} 天过期")
-                    except:
-                        pass
-
-                else:
-                    st.error(f"WHOIS查询失败: {result['error']}")
 
 st.markdown('</div>', unsafe_allow_html=True)
 # 页脚
