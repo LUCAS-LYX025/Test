@@ -1830,25 +1830,23 @@ elif tool_category == "IP/域名查询工具":
     # 创建实例
     ip_tool = IPQueryTool()
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
-        ["IP/域名查询", "子域名查询", "备案信息查询", "批量查询", "IPv4转换工具", "旁站查询", "IP反查网站"])
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["IP/域名查询", "批量查询", "IPv4转换工具", "WHOIS查询"])
 
     with tab1:
         st.markdown("**IP/域名基本信息查询**")
 
-        # 添加获取当前公网IP的按钮
+        # 获取当前公网IP
         if st.button("获取当前公网IP", key="get_public_ip", use_container_width=True):
             with st.spinner("正在获取当前公网IP..."):
                 public_ip = ip_tool.get_public_ip()
                 if public_ip != "获取公网IP失败":
                     st.session_state.current_public_ip = public_ip
                     st.success(f"当前公网IP: {public_ip}")
-                    # 自动填充到查询输入框
-                    target_input = public_ip
                 else:
                     st.error("无法获取当前公网IP")
 
-        # 如果已经获取过公网IP，显示在输入框中
+        # 输入框
         if 'current_public_ip' in st.session_state:
             target_input = st.text_input("输入IP地址或域名",
                                          value=st.session_state.current_public_ip,
@@ -1862,8 +1860,6 @@ elif tool_category == "IP/域名查询工具":
         st.caption("支持IPv4、IPv6地址和域名查询")
 
         col1, col2 = st.columns([2, 1])
-        with col1:
-            pass
         with col2:
             st.write("")
             st.write("")
@@ -1875,7 +1871,7 @@ elif tool_category == "IP/域名查询工具":
             ipv4_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
             ipv6_pattern = r'^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$'
 
-            # 处理URL格式，提取域名
+            # 处理URL格式
             if target_input.startswith(('http://', 'https://')):
                 try:
                     target_input = target_input.split('://')[1].split('/')[0]
@@ -1899,40 +1895,13 @@ elif tool_category == "IP/域名查询工具":
                 if result['success']:
                     st.success("查询成功！")
 
-                    st.markdown("**基本信息**")
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        st.metric("IP/域名", result['data'].get('IP地址', result['data'].get('域名', '未知')))
-                    with col2:
-                        location = result['data'].get('location', '未知')
-                        if location != '未知' and '中国' in location:
-                            if '省' in location:
-                                province = location.split('省')[0] + '省'
-                                city_part = location.split('省')[-1]
-                                if '市' in city_part:
-                                    city = city_part.split('市')[0] + '市'
-                                    display_location = f"{province} {city}"
-                                else:
-                                    display_location = province
-                            elif '市' in location:
-                                city = location.split('市')[0] + '市'
-                                display_location = city
-                            else:
-                                display_location = location
-                        else:
-                            display_location = location
-                        st.metric("归属地", display_location)
-                    with col3:
-                        st.metric("运营商", result['data'].get('isp', '未知'))
-                    with col4:
-                        ip_type = "IPv4" if '.' in target_input and ':' not in target_input else "IPv6" if ':' in target_input else "域名"
-                        st.metric("类型", ip_type)
-
+                    # rDNS查询
                     if is_ip:
                         rdns_result = ip_tool.get_rdns_info(target_input)
                         if rdns_result['success']:
                             st.metric("rDNS", rdns_result['data'].get('rDNS', '未知'))
 
+                    # 详细信息展示
                     st.markdown("**详细信息**")
                     detailed_info = result['data'].copy()
                     for key in ['IP地址', '域名', 'location', 'isp']:
@@ -1955,390 +1924,274 @@ elif tool_category == "IP/域名查询工具":
                 else:
                     st.error(f"查询失败: {result['error']}")
 
-    with tab2:
-        st.markdown("**子域名查询**")
-        st.info("查询指定域名的子域名列表")
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            domain_to_query = st.text_input("输入主域名", placeholder="例如: baidu.com")
-        with col2:
-            st.write("")
-            st.write("")
-            subdomain_button = st.button("查询子域名", use_container_width=True, key="subdomain_query")
+with tab2:
+    st.markdown("**批量查询工具**")
+    st.info("支持批量查询IP/域名信息")
 
-        if subdomain_button and domain_to_query:
-            # 移除可能的协议部分
-            domain_to_query = domain_to_query.replace('http://', '').replace('https://', '').split('/')[0]
+    query_type = st.radio("查询类型", ["IP地址查询", "域名查询"], horizontal=True)
 
-            if not re.match(
-                    r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+$',
-                    domain_to_query):
-                st.error("请输入有效的域名格式")
+    if query_type == "IP地址查询":
+        ips_input = st.text_area("输入IP地址列表（每行一个）", height=150,
+                                 placeholder="例如:\n8.8.8.8\n1.1.1.1\n117.30.73.100")
+        if st.button("批量查询IP", use_container_width=True):
+            if not ips_input.strip():
+                st.error("请输入至少一个IP地址")
                 st.stop()
 
-            with st.spinner("正在查询子域名..."):
-                # 模拟常见的子域名
-                common_subdomains = {
-                    'baidu.com': ['www.baidu.com', 'map.baidu.com', 'news.baidu.com', 'image.baidu.com',
-                                  'tieba.baidu.com'],
-                    'google.com': ['www.google.com', 'mail.google.com', 'drive.google.com', 'maps.google.com',
-                                   'news.google.com'],
-                    'qq.com': ['www.qq.com', 'mail.qq.com', 'im.qq.com', 'weixin.qq.com', 'game.qq.com']
-                }
+            ips = [ip.strip() for ip in ips_input.split('\n') if ip.strip()]
+            valid_ips = []
+            invalid_ips = []
 
-                if domain_to_query in common_subdomains:
-                    result = common_subdomains[domain_to_query]
+            ipv4_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
+            ipv6_pattern = r'^([0.9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$'
+
+            for ip in ips:
+                if re.match(ipv4_pattern, ip) or re.match(ipv6_pattern, ip):
+                    valid_ips.append(ip)
                 else:
-                    # 生成一些示例子域名
-                    base_domain = domain_to_query.split('.')[-2] if len(domain_to_query.split('.')) > 2 else \
-                        domain_to_query.split('.')[0]
-                    result = [
-                        f"www.{domain_to_query}",
-                        f"mail.{domain_to_query}",
-                        f"blog.{domain_to_query}",
-                        f"api.{domain_to_query}",
-                        f"dev.{domain_to_query}",
-                        f"test.{domain_to_query}",
-                        f"m.{domain_to_query}",
-                        f"mobile.{domain_to_query}",
-                        f"app.{domain_to_query}",
-                        f"cdn.{domain_to_query}"
-                    ]
+                    invalid_ips.append(ip)
 
-                st.success(f"找到 {len(result)} 个子域名")
-                for i, subdomain in enumerate(result[:20]):
-                    with st.container():
-                        st.markdown(f"""
-                        <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border-left: 4px solid #4299e1;">
-                            <div style="font-weight: 600; color: #2d3748; margin-bottom: 0.5rem;">子域名 {i + 1}</div>
-                            <div style="color: #4a5568;"><a href="http://{subdomain}" target="_blank">{subdomain}</a></div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                if len(result) > 20:
-                    st.info(f"还有 {len(result) - 20} 个子域名未显示")
+            if invalid_ips:
+                st.warning(f"发现 {len(invalid_ips)} 个无效IP地址: {', '.join(invalid_ips)}")
 
-    with tab3:
-        st.markdown("**备案信息查询**")
-        st.info("查询网站备案信息（仅限中国大陆网站）")
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            domain_to_query = st.text_input("输入域名查询备案", placeholder="例如: baidu.com")
-        with col2:
-            st.write("")
-            st.write("")
-            icp_button = st.button("查询备案", use_container_width=True, key="icp_query")
-
-        if icp_button and domain_to_query:
-            # 移除可能的协议部分
-            domain_to_query = domain_to_query.replace('http://', '').replace('https://', '').split('/')[0]
-
-            if not re.match(
-                    r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+$',
-                    domain_to_query):
-                st.error("请输入有效的域名格式")
+            if not valid_ips:
+                st.error("没有有效的IP地址可查询")
                 st.stop()
 
-            with st.spinner("正在查询备案信息..."):
-                # 模拟一些常见网站的备案信息
-                icp_mapping = {
-                    'baidu.com': {
-                        '主办单位': '北京百度网讯科技有限公司',
-                        '备案号': '京ICP证030173号',
-                        '备案性质': '企业',
-                        '审核时间': '2021-08-09',
-                        '网站名称': '百度搜索'
-                    },
-                    'qq.com': {
-                        '主办单位': '深圳市腾讯计算机系统有限公司',
-                        '备案号': '粤B2-20090059',
-                        '备案性质': '企业',
-                        '审核时间': '2022-03-15',
-                        '网站名称': '腾讯网'
-                    },
-                    'sina.com.cn': {
-                        '主办单位': '北京新浪互联信息服务有限公司',
-                        '备案号': '京ICP证000007',
-                        '备案性质': '企业',
-                        '审核时间': '2021-11-22',
-                        '网站名称': '新浪网'
-                    }
-                }
+            results = []
+            progress_bar = st.progress(0)
+            status_text = st.empty()
 
-                if domain_to_query in icp_mapping:
-                    result = icp_mapping[domain_to_query]
+            for i, ip in enumerate(valid_ips):
+                progress = (i + 1) / len(valid_ips)
+                progress_bar.progress(progress)
+                status_text.text(f"正在查询 {i + 1}/{len(valid_ips)}: {ip}")
+
+                result = ip_tool.get_ip_domain_info(ip, True)
+                if result['success']:
+                    results.append(result['data'])
                 else:
-                    # 生成模拟备案信息
-                    provinces = ['京', '沪', '粤', '浙', '苏', '闽', '川', '渝']
-                    random_province = random.choice(provinces)
-                    result = {
-                        '主办单位': f"{random_province}模拟科技有限公司",
-                        '备案号': f"{random_province}ICP备{random.randint(10000000, 99999999)}号",
-                        '备案性质': random.choice(['企业', '个人', '事业单位', '政府机关']),
-                        '审核时间': f"202{random.randint(1, 3)}-{random.randint(1, 12):02d}-{random.randint(1, 28):02d}",
-                        '网站名称': f"{domain_to_query.split('.')[0].capitalize()}网站"
-                    }
+                    results.append({'IP地址': ip, '状态': '查询失败', '错误': result['error']})
 
-                st.success("备案信息查询成功")
-                for key, value in result.items():
-                    with st.container():
-                        st.markdown(f"""
-                        <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border-left: 4px solid #667eea;">
-                            <div style="font-weight: 600; color: #2d3748; margin-bottom: 0.5rem;">{key}</div>
-                            <div style="color: #4a5568;">{value}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                time.sleep(0.5)  # 模拟查询延迟
 
-    with tab4:
-        st.markdown("**批量查询工具**")
-        st.info("支持批量查询IP/域名信息")
+            progress_bar.empty()
+            status_text.empty()
 
-        query_type = st.radio("查询类型", ["IP地址查询", "域名查询"], horizontal=True)
+            st.success(f"已完成 {len(valid_ips)} 个IP地址的查询")
 
-        if query_type == "IP地址查询":
-            ips_input = st.text_area("输入IP地址列表（每行一个）", height=150,
-                                     placeholder="例如:\n8.8.8.8\n1.1.1.1\n117.30.73.100")
-            if st.button("批量查询IP", use_container_width=True):
-                if not ips_input.strip():
-                    st.error("请输入至少一个IP地址")
-                    st.stop()
+            # 显示结果表格
+            df = pd.DataFrame(results)
+            st.dataframe(df)
 
-                ips = [ip.strip() for ip in ips_input.split('\n') if ip.strip()]
-                valid_ips = []
-                invalid_ips = []
+            # 提供下载按钮
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="下载查询结果",
+                data=csv,
+                file_name='ip_query_results.csv',
+                mime='text/csv'
+            )
 
-                ipv4_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
-                ipv6_pattern = r'^([0.9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$'
+    else:  # 域名查询
+        domains_input = st.text_area("输入域名列表（每行一个）", height=150,
+                                     placeholder="例如:\nbaidu.com\ngoogle.com\nqq.com")
+        if st.button("批量查询域名", use_container_width=True):
+            if not domains_input.strip():
+                st.error("请输入至少一个域名")
+                st.stop()
 
-                for ip in ips:
-                    if re.match(ipv4_pattern, ip) or re.match(ipv6_pattern, ip):
-                        valid_ips.append(ip)
-                    else:
-                        invalid_ips.append(ip)
+            domains = [domain.strip() for domain in domains_input.split('\n') if domain.strip()]
+            valid_domains = []
+            invalid_domains = []
 
-                if invalid_ips:
-                    st.warning(f"发现 {len(invalid_ips)} 个无效IP地址: {', '.join(invalid_ips)}")
+            domain_pattern = r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+$'
 
-                if not valid_ips:
-                    st.error("没有有效的IP地址可查询")
-                    st.stop()
+            for domain in domains:
+                if re.match(domain_pattern, domain):
+                    valid_domains.append(domain)
+                else:
+                    invalid_domains.append(domain)
 
-                results = []
-                progress_bar = st.progress(0)
-                status_text = st.empty()
+            if invalid_domains:
+                st.warning(f"发现 {len(invalid_domains)} 个无效域名: {', '.join(invalid_domains)}")
 
-                for i, ip in enumerate(valid_ips):
-                    progress = (i + 1) / len(valid_ips)
-                    progress_bar.progress(progress)
-                    status_text.text(f"正在查询 {i + 1}/{len(valid_ips)}: {ip}")
+            if not valid_domains:
+                st.error("没有有效的域名可查询")
+                st.stop()
 
-                    result = ip_tool.get_ip_domain_info(ip, True)
-                    if result['success']:
-                        results.append(result['data'])
-                    else:
-                        results.append({'IP地址': ip, '状态': '查询失败', '错误': result['error']})
+            results = []
+            progress_bar = st.progress(0)
+            status_text = st.empty()
 
-                    time.sleep(0.5)  # 模拟查询延迟
+            for i, domain in enumerate(valid_domains):
+                progress = (i + 1) / len(valid_domains)
+                progress_bar.progress(progress)
+                status_text.text(f"正在查询 {i + 1}/{len(valid_domains)}: {domain}")
 
-                progress_bar.empty()
-                status_text.empty()
+                result = ip_tool.get_ip_domain_info(domain, False)
+                if result['success']:
+                    results.append(result['data'])
+                else:
+                    results.append({'域名': domain, '状态': '查询失败', '错误': result['error']})
 
-                st.success(f"已完成 {len(valid_ips)} 个IP地址的查询")
+                time.sleep(0.5)  # 模拟查询延迟
 
-                # 显示结果表格
-                df = pd.DataFrame(results)
-                st.dataframe(df)
+            progress_bar.empty()
+            status_text.empty()
 
-                # 提供下载按钮
-                csv = df.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="下载查询结果",
-                    data=csv,
-                    file_name='ip_query_results.csv',
-                    mime='text/csv'
-                )
+            st.success(f"已完成 {len(valid_domains)} 个域名的查询")
 
-        else:  # 域名查询
-            domains_input = st.text_area("输入域名列表（每行一个）", height=150,
-                                         placeholder="例如:\nbaidu.com\ngoogle.com\nqq.com")
-            if st.button("批量查询域名", use_container_width=True):
-                if not domains_input.strip():
-                    st.error("请输入至少一个域名")
-                    st.stop()
+            # 显示结果表格
+            df = pd.DataFrame(results)
+            st.dataframe(df)
 
-                domains = [domain.strip() for domain in domains_input.split('\n') if domain.strip()]
-                valid_domains = []
-                invalid_domains = []
+            # 提供下载按钮
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="下载查询结果",
+                data=csv,
+                file_name='domain_query_results.csv',
+                mime='text/csv'
+            )
 
-                domain_pattern = r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+$'
+with tab3:
+    st.markdown("**IPv4转换工具**")
+    st.info("IPv4地址的各种格式转换")
+    conversion_type = st.radio("转换类型",
+                               ["十进制 ↔ 点分十进制",
+                                "点分十进制 ↔ 十六进制",
+                                "点分十进制 ↔ 二进制"],
+                               horizontal=True)
 
-                for domain in domains:
-                    if re.match(domain_pattern, domain):
-                        valid_domains.append(domain)
-                    else:
-                        invalid_domains.append(domain)
+    col1, col2 = st.columns(2)
+    with col1:
+        if conversion_type == "十进制 ↔ 点分十进制":
+            input_value = st.text_input("输入IP地址或十进制数", placeholder="例如: 8.8.8.8 或 134744072")
+        elif conversion_type == "点分十进制 ↔ 十六进制":
+            input_value = st.text_input("输入IP地址或十六进制", placeholder="例如: 8.8.8.8 或 0x8080808")
+        else:
+            input_value = st.text_input("输入IP地址或二进制", placeholder="例如: 8.8.8.8 或 1000000010000000100000001000")
+    with col2:
+        st.write("")
+        st.write("")
+        convert_button = st.button("转换", use_container_width=True, key="convert_ip")
 
-                if invalid_domains:
-                    st.warning(f"发现 {len(invalid_domains)} 个无效域名: {', '.join(invalid_domains)}")
+    if convert_button and input_value:
+        result = ip_tool.convert_ip_address(input_value, conversion_type)
+        if result['success']:
+            st.success("转换成功！")
+            for key, value in result['data'].items():
+                with st.container():
+                    st.markdown(f"""
+                     <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border-left: 4px solid #667eea;">
+                         <div style="font-weight: 600; color: #2d3748; margin-bottom: 0.5rem;">{key}</div>
+                         <div style="font-family: monospace; font-size: 14px; color: #4a5568;">{value}</div>
+                     </div>
+                     """, unsafe_allow_html=True)
+        else:
+            st.error(f"转换失败: {result['error']}")
 
-                if not valid_domains:
-                    st.error("没有有效的域名可查询")
-                    st.stop()
+    with st.expander("转换示例"):
+        st.markdown("""
+         十进制 ↔ 点分十进制
+         ▪ 8.8.8.8 → 134744072
 
-                results = []
-                progress_bar = st.progress(0)
-                status_text = st.empty()
+         ▪ 134744072 → 8.8.8.8
 
-                for i, domain in enumerate(valid_domains):
-                    progress = (i + 1) / len(valid_domains)
-                    progress_bar.progress(progress)
-                    status_text.text(f"正在查询 {i + 1}/{len(valid_domains)}: {domain}")
 
-                    result = ip_tool.get_ip_domain_info(domain, False)
-                    if result['success']:
-                        results.append(result['data'])
-                    else:
-                        results.append({'域名': domain, '状态': '查询失败', '错误': result['error']})
+         点分十进制 ↔ 十六进制
+         ▪ 8.8.8.8 → 0x8080808
 
-                    time.sleep(0.5)  # 模拟查询延迟
+         ▪ 0x8080808 → 8.8.8.8
 
-                progress_bar.empty()
-                status_text.empty()
 
-                st.success(f"已完成 {len(valid_domains)} 个域名的查询")
+         点分十进制 ↔ 二进制
+         ▪ 8.8.8.8 → 00001000.00001000.00001000.00001000
 
-                # 显示结果表格
-                df = pd.DataFrame(results)
-                st.dataframe(df)
+         """)
 
-                # 提供下载按钮
-                csv = df.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="下载查询结果",
-                    data=csv,
-                    file_name='domain_query_results.csv',
-                    mime='text/csv'
-                )
+# 新增的WHOIS查询标签页
+with tab4:
+    st.markdown("**WHOIS信息查询**")
+    st.info("查询域名的注册信息和所有权详情")
 
-    with tab5:
-        st.markdown("**IPv4转换工具**")
-        st.info("IPv4地址的各种格式转换")
-        conversion_type = st.radio("转换类型",
-                                   ["十进制 ↔ 点分十进制",
-                                    "点分十进制 ↔ 十六进制",
-                                    "点分十进制 ↔ 二进制"],
-                                   horizontal=True)
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        whois_target = st.text_input("查询域名", placeholder="例如: baidu.com", key="whois_target")
+    with col2:
+        st.write("")
+        st.write("")
+        whois_button = st.button("WHOIS查询", use_container_width=True, key="whois_query")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            if conversion_type == "十进制 ↔ 点分十进制":
-                input_value = st.text_input("输入IP地址或十进制数", placeholder="例如: 8.8.8.8 或 134744072")
-            elif conversion_type == "点分十进制 ↔ 十六进制":
-                input_value = st.text_input("输入IP地址或十六进制", placeholder="例如: 8.8.8.8 或 0x8080808")
-            else:
-                input_value = st.text_input("输入IP地址或二进制", placeholder="例如: 8.8.8.8 或 1000000010000000100000001000")
-        with col2:
-            st.write("")
-            st.write("")
-            convert_button = st.button("转换", use_container_width=True, key="convert_ip")
+    if whois_button and whois_target:
+        # 验证输入
+        if not whois_target.strip():
+            st.error("请输入要查询的域名")
+            st.stop()
 
-        if convert_button and input_value:
-            result = ip_tool.convert_ip_address(input_value, conversion_type)
+        # 简单的域名格式验证
+        domain_pattern = r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+$'
+        if not re.match(domain_pattern, whois_target.strip()):
+            st.error("请输入有效的域名格式")
+            st.stop()
+
+        with st.spinner("正在查询WHOIS信息..."):
+            result = ip_tool.whois_query(whois_target)
+
             if result['success']:
-                st.success("转换成功！")
-                for key, value in result['data'].items():
-                    with st.container():
-                        st.markdown(f"""
-                        <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border-left: 4px solid #667eea;">
-                            <div style="font-weight: 600; color: #2d3748; margin-bottom: 0.5rem;">{key}</div>
-                            <div style="font-family: monospace; font-size: 14px; color: #4a5568;">{value}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                st.success("WHOIS查询完成")
+
+                data = result['data']
+                st.markdown("### 域名注册信息")
+
+                # 主要信息显示
+                cols = st.columns(2)
+                with cols[0]:
+                    st.metric("域名", data.get('域名', '未知'))
+                    st.metric("注册商", data.get('注册商', '未知'))
+                    st.metric("域名状态", data.get('域名状态', '未知'))
+                with cols[1]:
+                    st.metric("注册时间", data.get('注册时间', '未知'))
+                    st.metric("过期时间", data.get('过期时间', '未知'))
+                    st.metric("更新时间", data.get('更新时间', '未知'))
+
+                # 详细信息
+                st.markdown("#### 详细信息")
+
+                # 注册人信息
+                st.markdown("**注册人信息**")
+                st.markdown(f"""
+                   - 注册人: {data.get('注册人', '未知')}
+                   - 注册组织: {data.get('注册组织', '未知')}
+                   """)
+
+                # 名称服务器
+                st.markdown("**名称服务器**")
+                nameservers = data.get('名称服务器', [])
+                if nameservers:
+                    for ns in nameservers:
+                        st.markdown(f"- {ns}")
+                else:
+                    st.markdown("- 未知")
+
+                # 计算剩余天数（模拟）
+                try:
+                    from datetime import datetime
+
+                    expire_date = datetime.strptime(data.get('过期时间', '2025-01-01'), '%Y-%m-%d')
+                    remaining_days = (expire_date - datetime.now()).days
+                    if remaining_days < 30:
+                        st.warning(f"⚠️ 域名将在 {remaining_days} 天后过期")
+                    else:
+                        st.info(f"域名还有 {remaining_days} 天过期")
+                except:
+                    pass
+
             else:
-                st.error(f"转换失败: {result['error']}")
+                st.error(f"WHOIS查询失败: {result['error']}")
 
-        with st.expander("转换示例"):
-            st.markdown("""
-            十进制 ↔ 点分十进制
-            ▪ 8.8.8.8 → 134744072
-
-            ▪ 134744072 → 8.8.8.8
-
-
-            点分十进制 ↔ 十六进制
-            ▪ 8.8.8.8 → 0x8080808
-
-            ▪ 0x8080808 → 8.8.8.8
-
-
-            点分十进制 ↔ 二进制
-            ▪ 8.8.8.8 → 00001000.00001000.00001000.00001000
-
-            """)
-
-    with tab6:
-        st.markdown("**旁站查询**")
-        st.info("查找同一服务器上的其他网站")
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            site_to_query = st.text_input("输入域名或IP地址", placeholder="例如: example.com 或 8.8.8.8")
-        with col2:
-            st.write("")
-            st.write("")
-            same_site_button = st.button("查询旁站", use_container_width=True, key="same_site_query")
-
-        if same_site_button and site_to_query:
-            with st.spinner("正在查询同一服务器上的网站..."):
-                result = ip_tool.find_same_site_sites(site_to_query)
-                if result['success']:
-                    st.success(f"找到 {len(result['data'])} 个旁站")
-                    for i, site in enumerate(result['data'][:15]):
-                        with st.container():
-                            st.markdown(f"""
-                            <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border-left: 4px solid #4299e1;">
-                                <div style="font-weight: 600; color: #2d3748; margin-bottom: 0.5rem;">旁站 {i + 1}</div>
-                                <div style="color: #4a5568;"><a href="http://{site}" target="_blank">{site}</a></div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                    if len(result['data']) > 15:
-                        st.info(f"还有 {len(result['data']) - 15} 个旁站未显示")
-                else:
-                    st.error(f"查询失败: {result['error']}")
-
-    with tab7:
-        st.markdown("**IP反查网站**")
-        st.info("通过IP地址查找使用该IP的网站列表")
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            ip_to_reverse = st.text_input("输入IP地址进行反查", placeholder="例如: 8.8.8.8")
-        with col2:
-            st.write("")
-            st.write("")
-            reverse_button = st.button("开始反查", use_container_width=True, key="reverse_query")
-
-        if reverse_button and ip_to_reverse:
-            if not re.match(r'^(\d{1,3}\.){3}\d{1,3}$', ip_to_reverse.strip()):
-                st.error("请输入有效的IPv4地址")
-                st.stop()
-
-            with st.spinner("正在查询使用该IP的网站..."):
-                result = ip_tool.reverse_ip_lookup(ip_to_reverse)
-
-                if result['success']:
-                    st.success(f"找到 {len(result['data'])} 个网站")
-                    for i, site in enumerate(result['data'][:20]):
-                        with st.container():
-                            st.markdown(f"""
-                            <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border-left: 4px solid #4299e1;">
-                                <div style="font-weight: 600; color: #2d3748; margin-bottom: 0.5rem;">网站 {i + 1}</div>
-                                <div style="color: #4a5568;"><a href="http://{site}" target="_blank">{site}</a></div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                    if len(result['data']) > 20:
-                        st.info(f"还有 {len(result['data']) - 20} 个网站未显示")
-                else:
-                    st.error(f"反查失败: {result['error']}")
-
-    st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 # 页脚
 st.markdown("---")
 st.markdown("""
