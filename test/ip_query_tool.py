@@ -125,14 +125,15 @@ class IPQueryTool:
             'ip_type': '公网IP'
         }
 
-    # 客户端代码（在用户设备上运行）
     def get_public_ip(self):
-        """在客户端获取公网IP"""
+        """改进的公网IP获取方法"""
         services = [
             'https://api.ipify.org',
             'https://ident.me',
             'https://checkip.amazonaws.com',
             'https://ipinfo.io/ip',
+            'https://api.my-ip.io/ip',
+            'https://ipecho.net/plain'
         ]
 
         for service in services:
@@ -140,35 +141,13 @@ class IPQueryTool:
                 response = requests.get(service, timeout=5)
                 if response.status_code == 200:
                     ip = response.text.strip()
+                    # 验证IP格式
                     if re.match(r'^(\d{1,3}\.){3}\d{1,3}$', ip):
                         return ip
             except:
                 continue
 
         return "获取公网IP失败"
-    # def get_public_ip(self):
-    #     """改进的公网IP获取方法"""
-    #     services = [
-    #         'https://api.ipify.org',
-    #         'https://ident.me',
-    #         'https://checkip.amazonaws.com',
-    #         'https://ipinfo.io/ip',
-    #         'https://api.my-ip.io/ip',
-    #         'https://ipecho.net/plain'
-    #     ]
-    #
-    #     for service in services:
-    #         try:
-    #             response = requests.get(service, timeout=5)
-    #             if response.status_code == 200:
-    #                 ip = response.text.strip()
-    #                 # 验证IP格式
-    #                 if re.match(r'^(\d{1,3}\.){3}\d{1,3}$', ip):
-    #                     return ip
-    #         except:
-    #             continue
-    #
-    #     return "获取公网IP失败"
 
     def get_ip_domain_info(self, target, is_ip):
         """获取IP/域名详细信息"""
