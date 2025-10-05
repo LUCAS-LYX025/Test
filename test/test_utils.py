@@ -2398,15 +2398,6 @@ elif tool_category == "图片处理工具":
                 output_format = st.selectbox("输出格式", ["JPG", "PNG", "WEBP"], index=0)
                 st.info("💡 支持中文水印，系统会自动检测可用字体")
 
-                # 字体选择
-                font_option = st.selectbox("字体选择", ["自动检测", "使用默认字体", "指定字体文件"])
-                if font_option == "指定字体文件":
-                    font_file = st.file_uploader("上传字体文件", type=['ttf', 'otf'], key="font_uploader")
-                else:
-                    font_file = None
-
-                st.info("💡 系统会自动检测可用字体，如需完美中文支持请上传中文字体文件")
-
         # 转换按钮
         if st.button("🔄 转换图片", use_container_width=True, key="process_image_btn"):
             try:
@@ -2515,8 +2506,7 @@ elif tool_category == "图片处理工具":
                             font_size,
                             color_rgb,
                             opacity,
-                            rotation,
-                            font_file  # 传递字体文件
+                            rotation
                         )
                         processed_img = image_tool.convert_image_for_format(processed_img, output_format)
 
