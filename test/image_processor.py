@@ -8,6 +8,14 @@ class ImageProcessor:
     提供格式转换、水印添加等功能
     """
 
+    def __init__(self):
+        self.available_fonts = self._detect_fonts()
+
+    def _detect_fonts(self):
+        """检测可用的字体"""
+        fonts = []
+        # 这里可以添加字体检测逻辑
+        return fonts
     def convert_image_for_format(self, image, target_format):
         """根据目标格式转换图片模式"""
         img = image.copy()
@@ -35,136 +43,161 @@ class ImageProcessor:
 
         return img
 
-    def add_watermark(self, image, text, position, font_size, color, opacity, rotation):
-        """添加文字水印到图片"""
-        from PIL import ImageDraw, ImageFont
+    def add_watermark(self, image, text, position, font_size, color, opacity, rotation, font_file=None):
+        """添加水印 - 增强版，支持中文字体"""
+        try:
+            from PIL import ImageDraw, ImageFont
+            import os
+
+            # 创建水印图层
+            if image.mode != 'RGBA':
+                watermark = Image.new('RGBA', image.size, (0, 0, 0, 0))
+                image_rgba = image.convert('RGBA')
+            else:
+                watermark = Image.new('RGBA', image.size, (0, 0, 0, 0))
+                image_rgba = image
+
+            draw = ImageDraw.Draw(watermark)
+
+            # 字体处理逻辑
+            font = None
+
+            # 1. 如果用户上传了字体文件
+            if font_file is not None:
+                try:
+                    # 保存上传的字体文件到临时位置
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.ttf') as tmp_file:
+                        tmp_file.write(font_file.getvalue())
+                        font_path = tmp_file.name
+
+                    font = ImageFont.truetype(font_path, font_size)
+                    # 清理临时文件
+                    os.unlink(font_path)
+                except Exception as e:
+                    print(f"使用上传字体失败: {e}")
+
+            # 2. 自动检测系统字体
+            if font is None:
+                font = self._get_available_font(font_size)
+
+            # 3. 如果还是没找到字体，使用默认字体
+            if font is None:
+                try:
+                    font = ImageFont.load_default()
+                    # 调整默认字体的大小
+                    from PIL import ImageFont
+                    default_font = ImageFont.load_default()
+                    # 对于默认字体，我们只能调整绘制位置来模拟大小
+                except:
+                    pass
+
+            # 获取文字尺寸
+            try:
+                if hasattr(draw, 'textbbox'):  # PIL 9.2.0+
+                    bbox = draw.textbbox((0, 0), text, font=font)
+                    text_width = bbox[2] - bbox[0]
+                    text_height = bbox[3] - bbox[1]
+                else:  # 旧版本PIL
+                    bbox = draw.textsize(text, font=font)
+                    text_width, text_height = bbox
+            except:
+                # 如果获取文字尺寸失败，使用估计值
+                text_width = len(text) * font_size
+                text_height = font_size
+
+            # 计算位置
+            positions = {
+                "顶部居左": (10, 10),
+                "顶部居中": ((image.width - text_width) // 2, 10),
+                "顶部居右": (image.width - text_width - 10, 10),
+                "左边居中": (10, (image.height - text_height) // 2),
+                "图片中心": ((image.width - text_width) // 2, (image.height - text_height) // 2),
+                "右边居中": (image.width - text_width - 10, (image.height - text_height) // 2),
+                "底部居左": (10, image.height - text_height - 10),
+                "底部居中": ((image.width - text_width) // 2, image.height - text_height - 10),
+                "底部居右": (image.width - text_width - 10, image.height - text_height - 10)
+            }
+
+            x, y = positions.get(position, (10, 10))
+
+            # 绘制水印（带透明度）
+            alpha = int(255 * opacity)
+            fill_color = color + (alpha,)
+
+            # 添加文字阴影效果，提高可读性
+            shadow_color = (0, 0, 0, alpha // 2)
+            draw.text((x + 1, y + 1), text, font=font, fill=shadow_color)
+            draw.text((x, y), text, font=font, fill=fill_color)
+
+            # 旋转水印
+            if rotation != 0:
+                watermark = watermark.rotate(rotation, expand=False, resample=Image.Resampling.BICUBIC,
+                                             center=(x + text_width // 2, y + text_height // 2))
+
+            # 合并图片和水印
+            result = Image.alpha_composite(image_rgba, watermark)
+
+            # 如果原图不是RGBA，转换回去
+            if image.mode != 'RGBA':
+                result = result.convert(image.mode)
+
+            return result
+
+        except Exception as e:
+            print(f"水印添加失败: {e}")
+            return image
+
+    def _get_available_font(self, font_size):
+        """获取可用的字体"""
+        from PIL import ImageFont
+        import sys
         import os
 
-        # 创建图片副本
-        img = image.copy()
+        # 常见的中文字体路径
+        font_paths = []
 
-        # 转换为RGBA模式以支持透明度
-        if img.mode != 'RGBA':
-            img = img.convert('RGBA')
+        # Windows 字体路径
+        if sys.platform == "win32":
+            windir = os.environ.get("WINDIR", "C:\\Windows")
+            font_paths.extend([
+                os.path.join(windir, "Fonts", "simhei.ttf"),  # 黑体
+                os.path.join(windir, "Fonts", "simsun.ttc"),  # 宋体
+                os.path.join(windir, "Fonts", "msyh.ttc"),  # 微软雅黑
+                os.path.join(windir, "Fonts", "msyhbd.ttc"),  # 微软雅黑粗体
+            ])
 
-        # 创建透明层
-        watermark = Image.new('RGBA', img.size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(watermark)
+        # Linux 字体路径
+        elif sys.platform.startswith("linux"):
+            font_paths.extend([
+                "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+                "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            ])
 
-        # 字体处理 - 支持中文
-        font = None
-        font_paths = [
-            # Windows 字体路径
-            "C:/Windows/Fonts/simhei.ttf",  # 黑体
-            "C:/Windows/Fonts/simsun.ttc",  # 宋体
-            "C:/Windows/Fonts/msyh.ttc",  # 微软雅黑
-            # macOS 字体路径
-            "/System/Library/Fonts/PingFang.ttc",
-            "/System/Library/Fonts/STHeiti Light.ttc",
-            "/System/Library/Fonts/STHeiti Medium.ttc",
-            # Linux 字体路径
-            "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
-            "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
-            "/usr/share/fonts/truetype/arphic/ukai.ttc",
-        ]
+        # macOS 字体路径
+        elif sys.platform == "darwin":
+            font_paths.extend([
+                "/System/Library/Fonts/PingFang.ttc",
+                "/System/Library/Fonts/STHeiti Light.ttc",
+                "/System/Library/Fonts/Helvetica.ttc",
+                "/Library/Fonts/Arial.ttf",
+            ])
 
+        # 尝试每个字体路径
         for font_path in font_paths:
             if os.path.exists(font_path):
                 try:
-                    font = ImageFont.truetype(font_path, font_size)
-                    break
-                except:
+                    return ImageFont.truetype(font_path, font_size)
+                except Exception:
                     continue
 
-        # 如果系统字体都不可用，使用默认字体（但可能不支持中文）
-        if font is None:
-            try:
-                font = ImageFont.load_default()
-                st.warning("⚠️ 未找到中文字体，中文显示可能不正常。建议安装中文字体。")
-            except:
-                st.error("❌ 无法加载字体")
-
-        # 计算文字尺寸
+        # 如果都没找到，尝试系统默认字体
         try:
-            bbox = draw.textbbox((0, 0), text, font=font)
-            text_width = bbox[2] - bbox[0]
-            text_height = bbox[3] - bbox[1]
+            return ImageFont.truetype("arial.ttf", font_size)
         except:
-            # 如果计算失败，使用估计值
-            text_width = len(text) * font_size
-            text_height = font_size
-
-        # 计算位置
-        if position == "顶部居左":
-            x = 10
-            y = 10
-        elif position == "顶部居中":
-            x = (img.width - text_width) // 2
-            y = 10
-        elif position == "顶部居右":
-            x = img.width - text_width - 10
-            y = 10
-        elif position == "左边居中":
-            x = 10
-            y = (img.height - text_height) // 2
-        elif position == "图片中心":
-            x = (img.width - text_width) // 2
-            y = (img.height - text_height) // 2
-        elif position == "右边居中":
-            x = img.width - text_width - 10
-            y = (img.height - text_height) // 2
-        elif position == "底部居左":
-            x = 10
-            y = img.height - text_height - 10
-        elif position == "底部居中":
-            x = (img.width - text_width) // 2
-            y = img.height - text_height - 10
-        elif position == "底部居右":
-            x = img.width - text_width - 10
-            y = img.height - text_height - 10
-        else:
-            x = 10
-            y = 10
-
-        # 设置颜色和透明度
-        r, g, b = color
-        alpha = int(255 * opacity)
-
-        # 如果有旋转角度，创建旋转后的水印
-        if rotation != 0:
-            # 创建临时图片来绘制文字（更大的画布以适应旋转）
-            temp_width = int(text_width * 1.5)
-            temp_height = int(text_height * 1.5)
-            temp_img = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
-            temp_draw = ImageDraw.Draw(temp_img)
-            temp_draw.text((temp_width // 2 - text_width // 2, temp_height // 2 - text_height // 2),
-                           text, font=font, fill=(r, g, b, alpha))
-
-            # 旋转图片
-            rotated_img = temp_img.rotate(rotation, expand=True, resample=Image.BICUBIC)
-
-            # 计算旋转后的位置
-            rot_width, rot_height = rotated_img.size
-            if position == "图片中心":
-                x = (img.width - rot_width) // 2
-                y = (img.height - rot_height) // 2
-            elif "居右" in position:
-                x = img.width - rot_width - 10
-            elif "居中" in position:
-                x = (img.width - rot_width) // 2
-
-            if "底部" in position:
-                y = img.height - rot_height - 10
-            elif "居中" in position and "底部" not in position and "顶部" not in position:
-                y = (img.height - rot_height) // 2
-
-            # 粘贴旋转后的水印
-            watermark.paste(rotated_img, (x, y), rotated_img)
-        else:
-            # 直接绘制文字
-            draw.text((x, y), text, font=font, fill=(r, g, b, alpha))
-
-        # 合并原图和水印
-        result = Image.alpha_composite(img, watermark)
-
-        return result
+            try:
+                return ImageFont.load_default()
+            except:
+                return None
