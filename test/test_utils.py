@@ -2515,7 +2515,8 @@ elif tool_category == "图片处理工具":
                             font_size,
                             color_rgb,
                             opacity,
-                            rotation
+                            rotation,
+                            font_file  # 传递字体文件
                         )
                         processed_img = image_tool.convert_image_for_format(processed_img, output_format)
 
