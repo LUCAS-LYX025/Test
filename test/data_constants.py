@@ -610,6 +610,11 @@ TOOL_CATEGORIES = {
         "icon": "🌐",
         "description": "IP定位、域名解析、网络信息查询",
         "color": "#ed64a6"
+    },
+    "图片处理工具": {
+        "icon": "🖼️",
+        "description": "图片格式转换、压缩、尺寸调整",
+        "color": "#ed64a6"
     }
 }
 
@@ -875,6 +880,13 @@ HEADLINE_STYLES = """
     </p>
 </div>
 """
+PRESET_SIZES = {
+    "社交媒体头像 (200×200)": (200, 200),
+    "社交媒体帖子 (1080×1080)": (1080, 1080),
+    "手机壁纸 (1080×1920)": (1080, 1920),
+    "电脑壁纸 (1920×1080)": (1920, 1080),
+    "微信头像 (640×640)": (640, 640),
+}
 # 导出所有常量
 __all__ = ['PROVINCES', 'COUNTRIES', 'CATEGORIES', 'PROVINCE_MAP', 'TO_SECONDS', 'RANDOM_STRING_TYPES',
            'PASSWORD_OPTIONS',
