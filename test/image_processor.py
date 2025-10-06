@@ -1,5 +1,5 @@
 from PIL import Image
-
+import streamlit as st
 
 class ImageProcessor:
     """
@@ -194,10 +194,11 @@ class ImageProcessor:
                     continue
 
         # 如果都没找到，尝试使用指定的 PingFang.ttc 路径
-        custom_font_path = "/mount/src/test/test/fonts/PingFang.ttc"
+        custom_font_path = "/mount/src/test/test/PingFang.ttc"
         if os.path.exists(custom_font_path):
             try:
                 return ImageFont.truetype(custom_font_path, font_size)
+                st.success("📁 哈哈哈哈哈哈")
             except Exception:
                 pass  # 如果自定义字体也失败，继续尝试其他选项
 
