@@ -177,13 +177,13 @@ class ImageProcessor:
             ])
 
         # macOS 字体路径
-        elif sys.platform == "darwin":
-            font_paths.extend([
-                "/System/Library/Fonts/PingFang.ttc",
-                "/System/Library/Fonts/STHeiti Light.ttc",
-                "/System/Library/Fonts/Helvetica.ttc",
-                "/Library/Fonts/Arial.ttf",
-            ])
+        # elif sys.platform == "darwin":
+        #     font_paths.extend([
+        #         "/System/Library/Fonts/PingFang.ttc",
+        #         "/System/Library/Fonts/STHeiti Light.ttc",
+        #         "/System/Library/Fonts/Helvetica.ttc",
+        #         "/Library/Fonts/Arial.ttf",
+        #     ])
 
         # 尝试每个字体路径
         for font_path in font_paths:
