@@ -198,9 +198,9 @@ class ImageProcessor:
 
         # 在 Streamlit 中显示调试信息
         import streamlit as st
-        st.warning(f"📁 当前文件目录: `{current_dir}`")
-        st.warning(f"🎯 字体文件路径: `{custom_font_path}`")
-        st.warning(f"✅ 字体文件是否存在: `{os.path.exists(custom_font_path)}`")
+        st.success(f"📁 当前文件目录: `{current_dir}`")
+        st.success(f"🎯 字体文件路径: `{custom_font_path}`")
+        st.success(f"✅ 字体文件是否存在: `{os.path.exists(custom_font_path)}`")
 
         if os.path.exists(custom_font_path):
             try:
