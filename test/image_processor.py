@@ -194,7 +194,7 @@ class ImageProcessor:
                     continue
 
         # 如果都没找到，尝试使用指定的 PingFang.ttc 路径
-        custom_font_path = "/Users/leiyuxing/PycharmProjects/Test/test/fonts/PingFang.ttc"
+        custom_font_path = "/mount/src/test/test/fonts/PingFang.ttc"
         if os.path.exists(custom_font_path):
             try:
                 return ImageFont.truetype(custom_font_path, font_size)
