@@ -14,8 +14,6 @@ import sys
 from PIL import Image
 import io
 
-from image_processor import ImageProcessor
-
 print(sys.path)
 sys.path.append('/mount/src/test/test')
 from data_constants import PROVINCES, COUNTRIES, CATEGORIES, PROVINCE_MAP, TO_SECONDS, RANDOM_STRING_TYPES, \

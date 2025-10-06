@@ -1,6 +1,6 @@
 from PIL import Image
-import streamlit as st
-
+import sys
+print(sys.path)
 
 class ImageProcessor:
     """
@@ -192,6 +192,14 @@ class ImageProcessor:
                     return ImageFont.truetype(font_path, font_size)
                 except Exception:
                     continue
+
+        # 如果都没找到，尝试使用指定的 PingFang.ttc 路径
+        custom_font_path = "/Users/leiyuxing/PycharmProjects/Test/test/fonts/PingFang.ttc"
+        if os.path.exists(custom_font_path):
+            try:
+                return ImageFont.truetype(custom_font_path, font_size)
+            except Exception:
+                pass  # 如果自定义字体也失败，继续尝试其他选项
 
         # 如果都没找到，尝试系统默认字体
         try:
