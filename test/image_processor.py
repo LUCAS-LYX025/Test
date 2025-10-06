@@ -1,9 +1,6 @@
-import os
-
 from PIL import Image
-import streamlit as st
-script_dir = os.path.dirname(os.path.abspath(__file__))
-st.write(f"📁 脚本所在目录: `{script_dir}`")
+
+
 class ImageProcessor:
     """
     图片处理工具类
@@ -18,6 +15,7 @@ class ImageProcessor:
         fonts = []
         # 这里可以添加字体检测逻辑
         return fonts
+
     def convert_image_for_format(self, image, target_format):
         """根据目标格式转换图片模式"""
         img = image.copy()

@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 import json
 import re
@@ -2542,6 +2544,7 @@ elif tool_category == "图片处理工具":
 
                     st.session_state.processed_image_format = output_format.lower()
                     st.success("图片处理完成！")
+                    script_dir = os.path.dirname(os.path.abspath(__file__))
                     st.success(f"📁 脚本所在目录123: `{script_dir}`")
 
             except Exception as e:
