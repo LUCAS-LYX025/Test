@@ -194,7 +194,7 @@ class ImageProcessor:
                     continue
         import os
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        custom_font_path = os.path.join(current_dir, "fonts", "fonts/PingFang.ttc")
+        custom_font_path = os.path.join(current_dir, "fonts/PingFang.ttc")
 
         # 在 Streamlit 中显示调试信息
         import streamlit as st
