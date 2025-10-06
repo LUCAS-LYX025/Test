@@ -192,15 +192,32 @@ class ImageProcessor:
                     return ImageFont.truetype(font_path, font_size)
                 except Exception:
                     continue
+        import os
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        custom_font_path = os.path.join(current_dir, "fonts", "fonts/PingFang.ttc")
 
-        # 如果都没找到，尝试使用指定的 PingFang.ttc 路径
-        custom_font_path = "/mount/src/test/test/PingFang.ttc"
+        # 在 Streamlit 中显示调试信息
+        import streamlit as st
+        st.write(f"📁 当前文件目录: `{current_dir}`")
+        st.write(f"🎯 字体文件路径: `{custom_font_path}`")
+        st.write(f"✅ 字体文件是否存在: `{os.path.exists(custom_font_path)}`")
+
         if os.path.exists(custom_font_path):
             try:
+                st.success("✅ 正在加载自定义字体...")
                 return ImageFont.truetype(custom_font_path, font_size)
-                st.success("📁 哈哈哈哈哈哈")
-            except Exception:
+            except Exception as e:
+                st.error(f"❌ 自定义字体加载失败: {e}")
                 pass  # 如果自定义字体也失败，继续尝试其他选项
+        else:
+            st.warning("⚠️ 自定义字体文件不存在，继续尝试其他选项")
+        # # 如果都没找到，尝试使用指定的 PingFang.ttc 路径
+        # custom_font_path = "/mount/src/test/test/PingFang.ttc"
+        # if os.path.exists(custom_font_path):
+        #     try:
+        #         return ImageFont.truetype(custom_font_path, font_size)
+        #     except Exception:
+        #         pass  # 如果自定义字体也失败，继续尝试其他选项
 
         # 如果都没找到，尝试系统默认字体
         try:
