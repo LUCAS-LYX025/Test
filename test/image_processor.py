@@ -1,7 +1,9 @@
-from PIL import Image
-import sys
-print(sys.path)
+import os
 
+from PIL import Image
+import streamlit as st
+script_dir = os.path.dirname(os.path.abspath(__file__))
+st.write(f"📁 脚本所在目录: `{script_dir}`")
 class ImageProcessor:
     """
     图片处理工具类
