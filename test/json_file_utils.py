@@ -158,31 +158,31 @@ class JSONFileUtils:
             return current_depth
 
     def display_json_structure(self, structure: Dict[str, Any], level: int = 0):
-        """显示JSON结构树"""
+        """显示JSON结构树 - 优化版本"""
         indent = "  " * level
         node_type = structure['type']
 
         if node_type == 'dict':
-            st.write(f"{indent}📁 对象 (键数量: {structure['size']})")
+            st.text(f"{indent}📁 对象 (键数量: {structure['size']})")
             for child in structure['children']:
-                # 修复：确保正确显示键名
                 key_name = child.get('key', '')
-                st.markdown(f"{indent}  🔑 {key_name}: ", help="")
+                # 方案1：使用 st.text() 保持原始格式
+                st.text(f"{indent}  🔑 {key_name}:")
                 self.display_json_structure(child, level + 1)
         elif node_type == 'list':
-            st.write(f"{indent}📋 数组 (元素数量: {structure['size']})")
+            st.text(f"{indent}📋 数组 (元素数量: {structure['size']})")
             for child in structure['children']:
-                # 修复：确保正确显示数组索引
                 index = child.get('index', 0)
-                st.write(f"{indent}  📍 [{index}]: ", end="")
+                # 方案2：使用 st.write() 但不带 end 参数
+                st.write(f"{indent}  📍 [{index}]:")
                 self.display_json_structure(child, level + 1)
         else:
-            # 修复：显示基本类型的值
             value = structure.get('value', '')
             if value:
-                st.write(f"{indent}📄 {node_type}: {value}")
+                # 方案3：使用 st.code() 显示值
+                st.text(f"{indent}📄 {node_type}: {value}")
             else:
-                st.write(f"{indent}📄 {node_type}")
+                st.text(f"{indent}📄 {node_type}")
 
     def execute_jsonpath(self, json_data: Any, expression: str) -> List[Any]:
         """执行JSONPath查询"""
