@@ -17,7 +17,9 @@ import io
 print(sys.path)
 sys.path.append('/mount/src/test/test')
 from data_constants import PROVINCES, COUNTRIES, CATEGORIES, PROVINCE_MAP, TO_SECONDS, RANDOM_STRING_TYPES, \
-    PASSWORD_OPTIONS, DOMAINS_PRESET, GENDERS, TOOL_CATEGORIES, CSS_STYLES, HEADLINE_STYLES, PRESET_SIZES
+    PASSWORD_OPTIONS, DOMAINS_PRESET, GENDERS, TOOL_CATEGORIES, CSS_STYLES, HEADLINE_STYLES, PRESET_SIZES, \
+    PREDEFINED_PATTERNS, LANGUAGE_TEMPLATES
+from data_constants import JSON_CONTENT
 from data_constants import PROVINCE_CITY_AREA_CODES
 from datetime_utils import DateTimeUtils
 from json_file_utils import JSONFileUtils
@@ -49,6 +51,41 @@ st.markdown(CSS_STYLES, unsafe_allow_html=True)
 
 
 # ================ 辅助函数 ================
+def generate_regex_from_examples(text, examples):
+    """根据示例文本生成正则表达式"""
+    if not text or not examples:
+        return ""
+
+    example_list = [ex.strip() for ex in examples.split(",") if ex.strip()]
+
+    if not example_list:
+        return ""
+
+    # 简化的模式识别逻辑
+    common_pattern = example_list[0]
+
+    for example in example_list[1:]:
+        # 找出共同前缀
+        i = 0
+        while i < min(len(common_pattern), len(example)) and common_pattern[i] == example[i]:
+            i += 1
+        common_pattern = common_pattern[:i]
+
+    if len(common_pattern) < 2:
+        return re.escape(example_list[0])
+
+    escaped_pattern = re.escape(common_pattern)
+
+    # 简单的模式推断
+    if len(example_list) > 1:
+        if all(ex.replace(common_pattern, "").isdigit() for ex in example_list):
+            return escaped_pattern + r"\d+"
+        elif all(ex.replace(common_pattern, "").isalpha() for ex in example_list):
+            return escaped_pattern + r"[A-Za-z]+"
+
+    return escaped_pattern + ".*"
+
+
 # 过滤辅助函数
 def _apply_text_filters(line, log_levels, ip_filter, status_codes, show_only_errors, hide_debug):
     """应用文本过滤器"""
@@ -735,56 +772,280 @@ elif tool_category == "文本对比工具":
     st.markdown('</div>', unsafe_allow_html=True)
 
 # 正则表达式测试工具
-elif tool_category == "正则表达式测试工具":
+elif tool_category == "正则测试工具":
     show_doc("regex_tester")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        regex_pattern = st.text_input("正则表达式", placeholder="例如: ^[a-zA-Z0-9]+$")
-        test_text = st.text_area("测试文本", height=200, placeholder="在此输入要测试的文本...")
-    with col2:
-        st.markdown("**匹配选项**")
-        global_match = st.checkbox("全局匹配 (g)", value=True)
-        ignore_case = st.checkbox("忽略大小写 (i)")
-        multiline = st.checkbox("多行模式 (m)")
+    # 初始化session_state
+    if 'regex_clear_counter' not in st.session_state:
+        st.session_state.regex_clear_counter = 0
 
-        st.markdown("**替换功能**")
-        replace_text = st.text_input("替换文本", placeholder="输入替换文本（可选）")
+    # 添加工具选择选项卡
+    tab1, tab2, tab3 = st.tabs(["正则表达式测试", "代码生成器", "从示例生成"])
 
-    if st.button("测试正则表达式", use_container_width=True):
-        if regex_pattern and test_text:
-            try:
-                flags = 0
-                if ignore_case:
-                    flags |= re.IGNORECASE
-                if multiline:
-                    flags |= re.MULTILINE
+    with tab1:
+        col1, col2 = st.columns(2)
+        with col1:
+            # 预定义模式选择
+            st.markdown("**选择预定义模式**")
+            selected_pattern = st.selectbox("", ["自定义"] + list(PREDEFINED_PATTERNS.keys()), key="pattern_select")
 
-                if global_match:
-                    matches = list(re.finditer(regex_pattern, test_text, flags))
-                    match_count = len(matches)
+            # 使用不同的key策略来避免session_state冲突
+            if selected_pattern != "自定义":
+                regex_pattern = PREDEFINED_PATTERNS[selected_pattern]
+                st.code(f"当前模式: {regex_pattern}")
+                # 同时允许用户修改预定义模式
+                custom_regex = st.text_input("或自定义正则表达式", value=regex_pattern, placeholder="可在此修改表达式",
+                                             key=f"custom_regex_input_{st.session_state.regex_clear_counter}")
+                if custom_regex != regex_pattern:
+                    regex_pattern = custom_regex
+            else:
+                regex_pattern = st.text_input("正则表达式", placeholder="例如: ^[a-zA-Z0-9]+$",
+                                              key=f"manual_regex_input_{st.session_state.regex_clear_counter}")
 
-                    if match_count > 0:
-                        st.success(f"匹配成功！找到 {match_count} 个匹配项。")
-                        st.markdown("**匹配详情**")
-                        for i, match in enumerate(matches):
-                            st.write(f"匹配 {i + 1}: 位置 {match.start()}-{match.end()}: `{match.group()}`")
-                            if match.groups():
-                                st.write(f"  分组: {match.groups()}")
+            test_text = st.text_area("测试文本", height=200, placeholder="在此输入要测试的文本...",
+                                     key=f"test_text_area_{st.session_state.regex_clear_counter}")
+
+        with col2:
+            st.markdown("**匹配选项**")
+            global_match = st.checkbox("全局匹配 (g)", value=True, key="global_match_check")
+            ignore_case = st.checkbox("忽略大小写 (i)", key="ignore_case_check")
+            multiline = st.checkbox("多行模式 (m)", key="multiline_check")
+            dotall = st.checkbox("点号匹配换行 (s)", key="dotall_check")
+
+            st.markdown("**替换功能**")
+            replace_text = st.text_input("替换文本", placeholder="输入替换文本（可选）",
+                                         key=f"replace_text_input_{st.session_state.regex_clear_counter}")
+
+        button_col1, button_col2 = st.columns(2)
+        with button_col1:
+            if st.button("测试正则表达式", use_container_width=True, key="test_regex"):
+                # 获取当前输入框的值
+                current_regex = ""
+                if selected_pattern != "自定义":
+                    current_regex = custom_regex
+                else:
+                    current_regex = regex_pattern
+
+                current_test_text = test_text
+
+                if current_regex and current_test_text:
+                    try:
+                        flags = 0
+                        if ignore_case:
+                            flags |= re.IGNORECASE
+                        if multiline:
+                            flags |= re.MULTILINE
+                        if dotall:
+                            flags |= re.DOTALL
+
+                        if global_match:
+                            matches = list(re.finditer(current_regex, current_test_text, flags))
+                            match_count = len(matches)
+
+                            if match_count > 0:
+                                st.success(f"匹配成功！找到 {match_count} 个匹配项。")
+
+                                # 增强的匹配详情显示
+                                st.markdown("**匹配详情**")
+                                for i, match in enumerate(matches):
+                                    with st.expander(f"匹配 {i + 1}: 位置 {match.start()}-{match.end()}"):
+                                        st.write(f"匹配文本: `{match.group()}`")
+                                        if match.groups():
+                                            st.write("**捕获组:**")
+                                            for j, group in enumerate(match.groups(), 1):
+                                                st.write(f"  组 {j}: `{group}`")
+                                        if match.groupdict():
+                                            st.write("**命名分组:**")
+                                            for name, group in match.groupdict().items():
+                                                st.write(f"  {name}: `{group}`")
+                            else:
+                                st.warning("未找到匹配项。")
+                        else:
+                            match = re.search(current_regex, current_test_text, flags)
+                            if match:
+                                st.success("匹配成功！")
+                                st.write(f"匹配文本: `{match.group()}`")
+                                st.write(f"匹配位置: {match.start()}-{match.end()}")
+                                if match.groups():
+                                    st.write("**捕获组:**")
+                                    for i, group in enumerate(match.groups(), 1):
+                                        st.write(f"组 {i}: `{group}`")
+                            else:
+                                st.warning("未找到匹配项。")
+
+                        if replace_text:
+                            replaced_text = re.sub(current_regex, replace_text, current_test_text, flags=flags)
+                            st.markdown("**替换结果**")
+                            display_generated_results("替换后的文本", replaced_text, "regex_replaced")
+                    except re.error as e:
+                        st.error(f"正则表达式错误: {e}")
+                else:
+                    st.warning("请输入正则表达式和测试文本")
+
+        with button_col2:
+            if st.button("🗑️ 清空输入", use_container_width=True, key="clear_input"):
+                # 通过增加计数器并重新渲染来清空
+                st.session_state.regex_clear_counter += 1
+                st.rerun()
+
+    with tab2:
+        st.markdown("### 正则表达式代码生成器")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # 模式选择：预定义或自定义
+            pattern_source = st.radio("正则表达式来源", ["预定义模式", "自定义表达式"],
+                                      key=f"pattern_source_{st.session_state.regex_clear_counter}")
+
+            if pattern_source == "预定义模式":
+                code_pattern = st.selectbox("选择预定义模式", list(PREDEFINED_PATTERNS.keys()),
+                                            key=f"code_pattern_{st.session_state.regex_clear_counter}")
+                pattern_display = PREDEFINED_PATTERNS[code_pattern]
+                st.code(f"模式: {pattern_display}")
+            else:
+                pattern_display = st.text_input("输入自定义正则表达式", placeholder="例如: ^[a-zA-Z0-9]+$",
+                                                key=f"custom_pattern_input_{st.session_state.regex_clear_counter}")
+                if pattern_display:
+                    st.code(f"模式: {pattern_display}")
+
+            # 编程语言选择
+            target_language = st.selectbox("选择目标语言", list(LANGUAGE_TEMPLATES.keys()),
+                                           key=f"target_lang_{st.session_state.regex_clear_counter}")
+
+            # 操作类型
+            operation_type = st.radio("选择操作类型", ["匹配", "测试", "替换"],
+                                      key=f"operation_type_{st.session_state.regex_clear_counter}")
+
+            # 替换文本
+            replacement_code = ""
+            if operation_type == "替换":
+                replacement_code = st.text_input("替换文本", placeholder="输入替换文本",
+                                                 key=f"replacement_input_{st.session_state.regex_clear_counter}")
+
+        with col2:
+            st.markdown("**代码生成选项**")
+
+            # 标志选择
+            flags_selected = []
+            lang_flags = LANGUAGE_TEMPLATES[target_language]["flags"]
+
+            for flag_name, flag_char in lang_flags.items():
+                if st.checkbox(f"{flag_name} ({flag_char})",
+                               key=f"flag_{flag_char}_{target_language}_{st.session_state.regex_clear_counter}"):
+                    flags_selected.append(flag_name)
+
+            # 生成代码按钮
+            if st.button("生成代码", use_container_width=True, key="generate_code"):
+                current_pattern = ""
+                if pattern_source == "预定义模式":
+                    current_pattern = PREDEFINED_PATTERNS[code_pattern]
+                else:
+                    current_pattern = pattern_display
+
+                if not current_pattern:
+                    st.warning("请输入或选择正则表达式")
+                else:
+                    # 构建标志
+                    if target_language in ["Python", "Java", "C#"]:
+                        flags_value = " | ".join(flags_selected) if flags_selected else "0"
                     else:
-                        st.warning("未找到匹配项。")
+                        flags_value = "".join([lang_flags[flag] for flag in flags_selected])
 
-                if replace_text:
-                    replaced_text = re.sub(regex_pattern, replace_text, test_text, flags=flags)
-                    st.markdown("**替换结果**")
-                    st.text_area("", replaced_text, height=150)
-            except re.error as e:
-                st.error(f"正则表达式错误: {e}")
-        else:
-            st.warning("请输入正则表达式和测试文本")
+                    # 获取模板
+                    template_key = "match" if operation_type == "匹配" else "test" if operation_type == "测试" else "replace"
+                    template = LANGUAGE_TEMPLATES[target_language][template_key]
+
+                    # 生成代码
+                    try:
+                        generated_code = template.format(
+                            pattern=current_pattern,
+                            flags=flags_value,
+                            flags_value=flags_value,
+                            replacement=replacement_code
+                        )
+
+                        st.session_state.generated_code = generated_code
+                        st.session_state.generated_language = target_language
+
+                    except KeyError as e:
+                        st.error(f"代码生成错误: {e}")
+
+            # 显示已生成的代码（如果有）
+            if 'generated_code' in st.session_state and st.session_state.generated_code:
+                language = st.session_state.generated_language if 'generated_language' in st.session_state else target_language
+                display_generated_results(
+                    f"{language} 代码",
+                    st.session_state.generated_code,
+                    f"regex_{language.lower()}_code"
+                )
+
+        # 清空所有按钮
+        button_col3, _ = st.columns(2)
+        with button_col3:
+            if st.button("🗑️ 清空所有", use_container_width=True, key="clear_all_code"):
+                # 清除生成的代码状态
+                if 'generated_code' in st.session_state:
+                    del st.session_state.generated_code
+                if 'generated_language' in st.session_state:
+                    del st.session_state.generated_language
+                # 通过增加计数器清空输入
+                st.session_state.regex_clear_counter += 1
+                st.rerun()
+
+    with tab3:
+        st.markdown("### 从示例生成正则表达式")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            source_text = st.text_area("原文内容", height=150,
+                                       placeholder="输入包含要提取内容的原文...",
+                                       key=f"source_text_area_{st.session_state.regex_clear_counter}")
+
+        with col2:
+            examples_text = st.text_area("示例文本（用逗号分隔）", height=150,
+                                         placeholder="输入要匹配的示例，用逗号分隔...",
+                                         key=f"examples_text_area_{st.session_state.regex_clear_counter}")
+
+        button_col4, button_col5 = st.columns(2)
+        with button_col4:
+            if st.button("生成正则表达式", use_container_width=True, key="generate_from_examples"):
+                current_source = source_text
+                current_examples = examples_text
+
+                if current_source and current_examples:
+                    generated_regex = generate_regex_from_examples(current_source, current_examples)
+
+                    if generated_regex:
+                        st.success("已生成正则表达式！")
+
+                        # 使用统一的显示函数
+                        display_generated_results("生成的正则表达式", generated_regex, "generated_regex")
+
+                        # 测试生成的正则表达式
+                        try:
+                            matches = re.findall(generated_regex, current_source)
+                            if matches:
+                                st.write(f"在原文中找到 {len(matches)} 个匹配项:")
+                                for i, match in enumerate(matches):
+                                    st.write(f"{i + 1}. `{match}`")
+                            else:
+                                st.warning("生成的正则表达式在原文中未找到匹配项")
+                        except re.error as e:
+                            st.error(f"生成的正则表达式有误: {e}")
+                    else:
+                        st.warning("无法生成合适的正则表达式，请提供更多或更明确的示例")
+                else:
+                    st.warning("请输入原文内容和示例文本")
+
+        with button_col5:
+            if st.button("🗑️ 清空示例", use_container_width=True, key="clear_examples"):
+                # 通过增加计数器清空输入
+                st.session_state.regex_clear_counter += 1
+                st.rerun()
 
     st.markdown('</div>', unsafe_allow_html=True)
-
 # JSON数据对比工具
 elif tool_category == "JSON处理工具":
     utils = JSONFileUtils()
@@ -1024,43 +1285,7 @@ elif tool_category == "JSON处理工具":
 
         # 初始化session_state
         if 'jsonpath_json_content' not in st.session_state:
-            st.session_state.jsonpath_json_content = '''{
-    "store": {
-        "book": [
-            {
-                "category": "reference",
-                "author": "Nigel Rees",
-                "title": "Sayings of the Century",
-                "price": 8.95
-            },
-            {
-                "category": "fiction",
-                "author": "Evelyn Waugh",
-                "title": "Sword of Honour",
-                "price": 12.99
-            },
-            {
-                "category": "fiction",
-                "author": "Herman Melville",
-                "title": "Moby Dick",
-                "isbn": "0-553-21311-3",
-                "price": 8.99
-            },
-            {
-                "category": "fiction",
-                "author": "J. R. R. Tolkien",
-                "title": "The Lord of the Rings",
-                "isbn": "0-395-19395-8",
-                "price": 22.99
-            }
-        ],
-        "bicycle": {
-            "color": "red",
-            "price": 19.95
-        }
-    },
-    "expensive": 10
-}'''
+            st.session_state.jsonpath_json_content = JSON_CONTENT
         if 'jsonpath_expression' not in st.session_state:
             st.session_state.jsonpath_expression = "$.store.book[*].author"
         if 'jsonpath_result' not in st.session_state:
