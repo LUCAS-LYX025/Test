@@ -1,3 +1,5 @@
+import difflib
+
 import pandas as pd
 import json
 import re
@@ -715,60 +717,328 @@ elif tool_category == "文本对比工具":
     st.session_state.setdefault('text1_content', "")
     st.session_state.setdefault('text2_content', "")
     st.session_state.setdefault('clear_counter', 0)
+    st.session_state.setdefault('diff_mode', 'line')
+    st.session_state.setdefault('show_legend', True)
+
+
+    # 新增：词对比相关函数
+    def word_diff(text1, text2):
+        """实现词级别的对比"""
+        # 使用正则表达式分割单词，保留标点符号
+        words1 = re.findall(r'\b\w+\b|[^\w\s]|\s+', text1)
+        words2 = re.findall(r'\b\w+\b|[^\w\s]|\s+', text2)
+
+        d = Differ()
+        diff = list(d.compare(words1, words2))
+
+        return diff, words1, words2
+
+
+    def render_word_diff(diff):
+        """渲染词对比结果"""
+        html_parts = [
+            "<div style='background-color: #f8f9fa; padding: 15px; border-radius: 5px; font-family: monospace; line-height: 1.6;'>"]
+
+        current_line = []
+        for item in diff:
+            if item.startswith('+ '):
+                word = html.escape(item[2:])
+                current_line.append(
+                    f"<span style='background-color: #d4edda; color: #155724; padding: 1px 3px; margin: 0 1px; border-radius: 2px; border: 1px solid #c3e6cb;'>+{word}</span>")
+            elif item.startswith('- '):
+                word = html.escape(item[2:])
+                current_line.append(
+                    f"<span style='background-color: #f8d7da; color: #721c24; padding: 1px 3px; margin: 0 1px; border-radius: 2px; border: 1px solid #f5c6cb;'>-{word}</span>")
+            elif item.startswith('? '):
+                # 在词模式中，? 通常不需要特殊显示
+                continue
+            else:
+                word = html.escape(item[2:] if len(item) > 2 else item)
+                # 处理换行符
+                if word == '\n' or word == '\r\n':
+                    if current_line:
+                        html_parts.append(''.join(current_line))
+                        current_line = []
+                    html_parts.append("<br>")
+                else:
+                    current_line.append(f"<span style='padding: 1px 2px;'>{word}</span>")
+
+        # 添加最后一行
+        if current_line:
+            html_parts.append(''.join(current_line))
+
+        html_parts.append("</div>")
+        return ''.join(html_parts)
+
+
+    def render_enhanced_word_diff(text1, text2):
+        """增强的词对比，显示更详细的词级变化"""
+        # 使用 difflib 的 SequenceMatcher 进行更精确的词级对比
+        words1 = re.findall(r'\b\w+\b|[^\w\s]|\s+', text1)
+        words2 = re.findall(r'\b\w+\b|[^\w\s]|\s+', text2)
+
+        matcher = difflib.SequenceMatcher(None, words1, words2)
+
+        html_parts = [
+            "<div style='background-color: #f8f9fa; padding: 15px; border-radius: 5px; font-family: monospace; line-height: 1.6; word-wrap: break-word;'>"]
+
+        for opcode in matcher.get_opcodes():
+            tag, i1, i2, j1, j2 = opcode
+
+            if tag == 'equal':
+                # 相同的部分
+                for word in words1[i1:i2]:
+                    escaped_word = html.escape(word)
+                    html_parts.append(f"<span style='padding: 1px 2px; color: #6c757d;'>{escaped_word}</span>")
+            elif tag == 'replace':
+                # 替换的部分 - 显示删除和新增
+                # 删除的单词
+                for word in words1[i1:i2]:
+                    escaped_word = html.escape(word)
+                    html_parts.append(
+                        f"<span style='background-color: #f8d7da; color: #721c24; padding: 1px 3px; margin: 0 1px; border-radius: 2px; border: 1px solid #f5c6cb; text-decoration: line-through;'>-{escaped_word}</span>")
+                # 新增的单词
+                for word in words2[j1:j2]:
+                    escaped_word = html.escape(word)
+                    html_parts.append(
+                        f"<span style='background-color: #d4edda; color: #155724; padding: 1px 3px; margin: 0 1px; border-radius: 2px; border: 1px solid #c3e6cb;'>+{escaped_word}</span>")
+            elif tag == 'delete':
+                # 删除的部分
+                for word in words1[i1:i2]:
+                    escaped_word = html.escape(word)
+                    html_parts.append(
+                        f"<span style='background-color: #f8d7da; color: #721c24; padding: 1px 3px; margin: 0 1px; border-radius: 2px; border: 1px solid #f5c6cb; text-decoration: line-through;'>-{escaped_word}</span>")
+            elif tag == 'insert':
+                # 新增的部分
+                for word in words2[j1:j2]:
+                    escaped_word = html.escape(word)
+                    html_parts.append(
+                        f"<span style='background-color: #d4edda; color: #155724; padding: 1px 3px; margin: 0 1px; border-radius: 2px; border: 1px solid #c3e6cb;'>+{escaped_word}</span>")
+
+        html_parts.append("</div>")
+        return ''.join(html_parts)
+
+
+    # 设置选项区域
+    with st.expander("⚙️ 对比设置", expanded=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            diff_mode = st.selectbox(
+                "对比模式",
+                options=['line', 'word', 'enhanced_word'],
+                index=0,
+                help="行模式：按行对比；词模式：按单词对比；增强词模式：更精确的词级对比"
+            )
+        with col2:
+            show_legend = st.checkbox("显示图例", value=True)
+            ignore_case = st.checkbox("忽略大小写", value=False)
+            ignore_whitespace = st.checkbox("忽略空白字符", value=False)
 
     col_input1, col_input2 = st.columns(2)
 
     with col_input1:
         st.markdown("**原始文本**")
-        text1 = st.text_area(" ", height=300,  # 将label改为空格
+        text1 = st.text_area(" ", height=300,
                              key=f"text1_{st.session_state.clear_counter}",
                              value=st.session_state.text1_content,
                              label_visibility="collapsed")
+
+        if text1:
+            lines1 = len(text1.splitlines())
+            words1 = len(re.findall(r'\b\w+\b', text1))
+            chars1 = len(text1)
+            st.caption(f"📊 统计: {lines1} 行, {words1} 词, {chars1} 字符")
+
     with col_input2:
         st.markdown("**对比文本**")
-        text2 = st.text_area(" ", height=300,  # 将label改为空格
+        text2 = st.text_area(" ", height=300,
                              key=f"text2_{st.session_state.clear_counter}",
                              value=st.session_state.text2_content,
                              label_visibility="collapsed")
 
-    button_col1, button_col2 = st.columns([1, 1])
-    with button_col1:
-        if st.button("开始对比", use_container_width=True):
-            if text1 and text2:
-                try:
-                    d = Differ()
-                    diff = list(d.compare(text1.splitlines(), text2.splitlines()))
+        if text2:
+            lines2 = len(text2.splitlines())
+            words2 = len(re.findall(r'\b\w+\b', text2))
+            chars2 = len(text2)
+            st.caption(f"📊 统计: {lines2} 行, {words2} 词, {chars2} 字符")
 
-                    st.markdown("**对比结果**")
-                    html_parts = ["<div style='background-color: #f8f9fa; padding: 10px; border-radius: 5px;'>"]
-                    for line in diff:
-                        escaped_line = html.escape(line[2:] if len(line) > 2 else line)
-                        if line.startswith('+ '):
-                            html_parts.append(
-                                f"<div style='background-color: #d4edda; margin: 2px 0; padding: 2px 5px; border-radius: 3px;'>{escaped_line}</div>")
-                        elif line.startswith('- '):
-                            html_parts.append(
-                                f"<div style='background-color: #f8d7da; margin: 2px 0; padding: 2px 5px; border-radius: 3px;'>{escaped_line}</div>")
-                        elif line.startswith('? '):
-                            html_parts.append(
-                                f"<div style='background-color: #fff3cd; margin: 2px 0; padding: 2px 5px; border-radius: 3px;'>{escaped_line}</div>")
-                        else:
-                            content = escaped_line if line.startswith('  ') else html.escape(line)
-                            html_parts.append(f"<div style='margin: 2px 0; padding: 2px 5px;'>{content}</div>")
-                    html_parts.append("</div>")
-                    result_html = ''.join(html_parts)
-                    st.markdown(result_html, unsafe_allow_html=True)
-                except Exception as e:
-                    st.error(f"发生未知错误: {e}")
-            else:
-                st.warning("请填写原始文本和对比文本")
+    # 操作按钮区域
+    button_col1, button_col2, button_col3, button_col4 = st.columns([1, 1, 1, 1])
+
+    with button_col1:
+        compare_clicked = st.button("🔄 开始对比", use_container_width=True)
 
     with button_col2:
-        if st.button("清空所有内容", use_container_width=True):
+        if st.button("📋 交换文本", use_container_width=True):
+            st.session_state.text1_content, st.session_state.text2_content = \
+                st.session_state.text2_content, st.session_state.text1_content
+            st.session_state.clear_counter += 1
+            st.rerun()
+
+    with button_col3:
+        if st.button("📁 导入示例", use_container_width=True):
+            # 提供更适合词对比的示例文本
+            st.session_state.text1_content = """这是一个示例文本，用于演示词对比功能。
+第一行包含一些单词。
+第二行有更多的内容。
+第三行是最后一行。"""
+
+            st.session_state.text2_content = """这是一个示范文本，用于演示词汇对比功能。
+第一行包含某些词语。
+第二行有更多不同的内容。
+新增的第四行文本。"""
+            st.session_state.clear_counter += 1
+            st.rerun()
+
+    with button_col4:
+        if st.button("🗑️ 清空所有", use_container_width=True):
             st.session_state.text1_content = ""
             st.session_state.text2_content = ""
             st.session_state.clear_counter += 1
             st.rerun()
+
+    # 图例说明
+    if show_legend:
+        st.markdown("---")
+        if diff_mode == 'line':
+            col_legend1, col_legend2, col_legend3 = st.columns(3)
+            with col_legend1:
+                st.markdown(
+                    "<div style='background-color: #f8d7da; padding: 5px; border-radius: 3px; text-align: center;'>"
+                    "❌ 删除的行</div>",
+                    unsafe_allow_html=True
+                )
+            with col_legend2:
+                st.markdown(
+                    "<div style='background-color: #d4edda; padding: 5px; border-radius: 3px; text-align: center;'>"
+                    "✅ 新增的行</div>",
+                    unsafe_allow_html=True
+                )
+            with col_legend3:
+                st.markdown(
+                    "<div style='background-color: #fff3cd; padding: 5px; border-radius: 3px; text-align: center;'>"
+                    "⚠️ 修改的行</div>",
+                    unsafe_allow_html=True
+                )
+        else:
+            col_legend1, col_legend2 = st.columns(2)
+            with col_legend1:
+                st.markdown(
+                    "<div style='background-color: #f8d7da; padding: 5px; border-radius: 3px; text-align: center; border: 1px solid #f5c6cb;'>"
+                    "<span style='color: #721c24;'>-删除的单词</span></div>",
+                    unsafe_allow_html=True
+                )
+            with col_legend2:
+                st.markdown(
+                    "<div style='background-color: #d4edda; padding: 5px; border-radius: 3px; text-align: center; border: 1px solid #c3e6cb;'>"
+                    "<span style='color: #155724;'>+新增的单词</span></div>",
+                    unsafe_allow_html=True
+                )
+
+    if compare_clicked:
+        if text1 and text2:
+            try:
+                # 预处理文本
+                processed_text1 = text1
+                processed_text2 = text2
+
+                if ignore_case:
+                    processed_text1 = processed_text1.lower()
+                    processed_text2 = processed_text2.lower()
+
+                if ignore_whitespace:
+                    processed_text1 = ' '.join(processed_text1.split())
+                    processed_text2 = ' '.join(processed_text2.split())
+
+                st.markdown("### 📊 对比结果")
+
+                if diff_mode == 'line':
+                    # 行对比模式
+                    d = Differ()
+                    diff = list(d.compare(processed_text1.splitlines(), processed_text2.splitlines()))
+
+                    # 差异统计
+                    added_lines = sum(1 for line in diff if line.startswith('+ '))
+                    removed_lines = sum(1 for line in diff if line.startswith('- '))
+                    unchanged_lines = sum(1 for line in diff if line.startswith('  '))
+
+                    col_stat1, col_stat2, col_stat3 = st.columns(3)
+                    with col_stat1:
+                        st.metric("新增行数", added_lines)
+                    with col_stat2:
+                        st.metric("删除行数", removed_lines)
+                    with col_stat3:
+                        st.metric("相同行数", unchanged_lines)
+
+                    # 显示行对比结果
+                    html_parts = [
+                        "<div style='background-color: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace;'>"]
+                    for line in diff:
+                        escaped_line = html.escape(line[2:] if len(line) > 2 else line)
+                        if line.startswith('+ '):
+                            html_parts.append(
+                                f"<div style='background-color: #d4edda; margin: 2px 0; padding: 2px 5px; border-radius: 3px; border-left: 3px solid #28a745;'>"
+                                f"<span style='color: #28a745; font-weight: bold;'>+ </span>{escaped_line}</div>")
+                        elif line.startswith('- '):
+                            html_parts.append(
+                                f"<div style='background-color: #f8d7da; margin: 2px 0; padding: 2px 5px; border-radius: 3px; border-left: 3px solid #dc3545;'>"
+                                f"<span style='color: #dc3545; font-weight: bold;'>- </span>{escaped_line}</div>")
+                        elif line.startswith('? '):
+                            html_parts.append(
+                                f"<div style='background-color: #fff3cd; margin: 2px 0; padding: 2px 5px; border-radius: 3px; border-left: 3px solid #ffc107;'>"
+                                f"<span style='color: #856404; font-weight: bold;'>? </span>{escaped_line}</div>")
+                        else:
+                            content = escaped_line if line.startswith('  ') else html.escape(line)
+                            html_parts.append(
+                                f"<div style='margin: 2px 0; padding: 2px 5px; border-left: 3px solid #6c757d; color: #6c757d;'>"
+                                f"{content}</div>")
+                    html_parts.append("</div>")
+                    result_html = ''.join(html_parts)
+                    st.markdown(result_html, unsafe_allow_html=True)
+
+                elif diff_mode == 'word':
+                    # 基本词对比模式
+                    with st.spinner("正在进行词级对比..."):
+                        diff, words1, words2 = word_diff(processed_text1, processed_text2)
+
+                        # 词级统计
+                        added_words = sum(1 for word in diff if word.startswith('+ '))
+                        removed_words = sum(1 for word in diff if word.startswith('- '))
+                        unchanged_words = sum(1 for word in diff if word.startswith('  '))
+
+                        col_stat1, col_stat2, col_stat3 = st.columns(3)
+                        with col_stat1:
+                            st.metric("新增词汇", added_words)
+                        with col_stat2:
+                            st.metric("删除词汇", removed_words)
+                        with col_stat3:
+                            st.metric("相同词汇", unchanged_words)
+
+                        result_html = render_word_diff(diff)
+                        st.markdown(result_html, unsafe_allow_html=True)
+
+                else:  # enhanced_word
+                    # 增强词对比模式
+                    with st.spinner("正在进行增强词级对比..."):
+                        result_html = render_enhanced_word_diff(processed_text1, processed_text2)
+
+                        # 简单统计
+                        words1 = re.findall(r'\b\w+\b', processed_text1)
+                        words2 = re.findall(r'\b\w+\b', processed_text2)
+
+                        col_stat1, col_stat2 = st.columns(2)
+                        with col_stat1:
+                            st.metric("原文词汇数", len(words1))
+                        with col_stat2:
+                            st.metric("对比文词汇数", len(words2))
+
+                        st.markdown(result_html, unsafe_allow_html=True)
+
+            except Exception as e:
+                st.error(f"发生错误: {e}")
+                st.info("建议尝试使用行对比模式或检查文本格式")
+        else:
+            st.warning("⚠️ 请填写原始文本和对比文本")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
