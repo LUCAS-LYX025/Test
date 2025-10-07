@@ -167,7 +167,7 @@ class JSONFileUtils:
             for child in structure['children']:
                 # 修复：确保正确显示键名
                 key_name = child.get('key', '')
-                st.write(f"{indent}  🔑 {key_name}: ", end="")
+                st.markdown(f"{indent}  🔑 {key_name}: ", help="")
                 self.display_json_structure(child, level + 1)
         elif node_type == 'list':
             st.write(f"{indent}📋 数组 (元素数量: {structure['size']})")
