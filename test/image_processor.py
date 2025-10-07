@@ -236,10 +236,39 @@ class ImageProcessor:
         # Linux 字体路径
         elif sys.platform.startswith("linux"):
             font_paths.extend([
-                "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
-                "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
-                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                # 中文相关字体
+                "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",  # Android 字体
+                "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",  # 文泉驿微米黑
+                "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",  # 文泉驿正黑
+                "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",  # Google Noto 字体
+
+                # Ubuntu/Debian 常见路径
+                "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+
+                # RedHat/CentOS/Fedora 常见路径
+                "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf",
+
+                # 其他可能的中文字体路径
+                "/usr/share/fonts/truetype/arphic/ukai.ttc",  # AR PL 楷体
+                "/usr/share/fonts/truetype/arphic/uming.ttc",  # AR PL 明体
+                "/usr/share/fonts/truetype/ttf-wps-fonts/simfang.ttf",  # WPS 仿宋
+                "/usr/share/fonts/truetype/ttf-wps-fonts/simhei.ttf",  # WPS 黑体
+                "/usr/share/fonts/truetype/ttf-wps-fonts/simkai.ttf",  # WPS 楷体
+
+                # Noto 字体其他可能位置
+                "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+                "/usr/share/fonts/noto/NotoSansCJK-Regular.ttc",
+
+                # 用户安装字体
+                "/usr/local/share/fonts/wqy-microhei.ttc",
+                "~/.local/share/fonts/wqy-microhei.ttc",
+
+                # 容器/云环境常见字体
+                "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
             ])
             st.info("🐧 检测到 Linux 系统，使用 Linux 字体路径")
 
