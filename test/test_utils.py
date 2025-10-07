@@ -134,7 +134,6 @@ def escape_js_string(text):
     """安全转义 JavaScript 字符串"""
     return json.dumps(text)
 
-
 def create_copy_button(text, button_text="📋 复制到剪贴板", key=None):
     """创建一键复制按钮"""
     if key is None:
@@ -187,14 +186,14 @@ def create_copy_button(text, button_text="📋 复制到剪贴板", key=None):
                         button.style.background = '#48bb78';
                         setTimeout(function() {{
                             button.innerHTML = originalText;
-                            button.style.background = '';
+                            button.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
                         }}, 2000);
                     }} else {{
                         button.innerHTML = '❌ 复制失败';
                         button.style.background = '#e53e3e';
                         setTimeout(function() {{
                             button.innerHTML = '{button_text}';
-                            button.style.background = '';
+                            button.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
                         }}, 2000);
                     }}
                 }});
@@ -207,14 +206,13 @@ def create_copy_button(text, button_text="📋 复制到剪贴板", key=None):
     button_html = f"""
     <div>
         <button data-copy-button="{key}"
-                style="background:linear-gradient(135deg, #6e8efb 0%, #a777e3 100%);color:white;border:none;padding:10px 20px;border-radius:10px;cursor:pointer;font-size:14px;margin:5px;font-weight:500;transition:all 0.3s ease;width:100%;">
+                style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;margin:5px;font-weight:500;transition:all 0.3s ease;width:100%;height:42px;font-family:inherit;box-shadow:0 2px 4px rgba(0,0,0,0.1);">
             {button_text}
         </button>
     </div>
     """
 
-    components.html(button_html + copy_script, height=70)
-
+    components.html(button_html + copy_script, height=60)
 
 def display_generated_results(title, content, filename_prefix):
     """统一展示生成结果 + 复制 + 下载"""
