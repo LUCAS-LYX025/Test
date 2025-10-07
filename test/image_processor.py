@@ -88,17 +88,27 @@ class ImageProcessor:
                 except:
                     pass
 
-            # 获取文字尺寸
+            # 获取文字尺寸 - 兼容新版和旧版 PIL
             try:
-                if hasattr(draw, 'textbbox'):  # PIL 9.2.0+
+                # 方法1: 使用 textbbox (PIL 9.2.0+)
+                if hasattr(draw, 'textbbox'):
                     bbox = draw.textbbox((0, 0), text, font=font)
                     text_width = bbox[2] - bbox[0]
                     text_height = bbox[3] - bbox[1]
-                else:  # 旧版本PIL
-                    bbox = draw.textsize(text, font=font)
-                    text_width, text_height = bbox
+                # 方法2: 使用 textlength 和 getsize (较新版本)
+                elif hasattr(draw, 'textlength'):
+                    text_width = int(draw.textlength(text, font=font))
+                    # 估算高度
+                    text_height = font_size
+                # 方法3: 使用 getsize (旧版本)
+                elif hasattr(font, 'getsize'):
+                    text_width, text_height = font.getsize(text)
+                # 方法4: 最后回退方案
+                else:
+                    text_width = len(text) * font_size // 2
+                    text_height = font_size
             except:
-                # 如果获取文字尺寸失败，使用估计值
+                # 如果所有方法都失败，使用估计值
                 text_width = len(text) * font_size // 2
                 text_height = font_size
 
