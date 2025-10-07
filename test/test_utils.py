@@ -1270,13 +1270,31 @@ elif tool_category == "文本对比工具":
 
     with button_col1:
         compare_clicked = st.button("🔄 开始对比", use_container_width=True)
-
+    # 在交换按钮中添加调试信息
     with button_col2:
         if st.button("📋 交换文本", use_container_width=True):
+            # 调试：打印交换前的值
+            st.write(f"交换前 - text1: {st.session_state.text1_content[:50]}...")
+            st.write(f"交换前 - text2: {st.session_state.text2_content[:50]}...")
+
+            # 执行交换
             st.session_state.text1_content, st.session_state.text2_content = \
                 st.session_state.text2_content, st.session_state.text1_content
+
+            # 增加计数器强制重新渲染
             st.session_state.clear_counter += 1
+
+            # 调试：打印交换后的值
+            st.write(f"交换后 - text1: {st.session_state.text1_content[:50]}...")
+            st.write(f"交换后 - text2: {st.session_state.text2_content[:50]}...")
+
             st.rerun()
+    # with button_col2:
+    #     if st.button("📋 交换文本", use_container_width=True):
+    #         st.session_state.text1_content, st.session_state.text2_content = \
+    #             st.session_state.text2_content, st.session_state.text1_content
+    #         st.session_state.clear_counter += 1
+    #         st.rerun()
 
     with button_col3:
         if st.button("📁 导入示例", use_container_width=True):
