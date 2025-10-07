@@ -1830,16 +1830,22 @@ elif tool_category == "JSON处理工具":
             st.session_state.comparison_result = None
         if 'differences_text' not in st.session_state:
             st.session_state.differences_text = ""
+        if 'clear_counter' not in st.session_state:
+            st.session_state.clear_counter = 0  # 添加计数器用于强制重新渲染
 
-        # 输入区域
+        # 输入区域 - 使用计数器确保重新渲染
         input_cols = st.columns(2)
         with input_cols[0]:
             st.markdown("**JSON 1**")
-            json1 = st.text_area("", height=300, key="json1", value=st.session_state.json1_content,
+            json1 = st.text_area("", height=300,
+                                 key=f"json1_{st.session_state.clear_counter}",  # 使用动态key
+                                 value=st.session_state.json1_content,
                                  placeholder='输入第一个JSON数据...')
         with input_cols[1]:
             st.markdown("**JSON 2**")
-            json2 = st.text_area("", height=300, key="json2", value=st.session_state.json2_content,
+            json2 = st.text_area("", height=300,
+                                 key=f"json2_{st.session_state.clear_counter}",  # 使用动态key
+                                 value=st.session_state.json2_content,
                                  placeholder='输入第二个JSON数据...')
 
         # 按钮区域
@@ -1847,6 +1853,10 @@ elif tool_category == "JSON处理工具":
         with button_cols[0]:
             if st.button("✨ 格式化全部", use_container_width=True, key="format_all"):
                 try:
+                    # 先同步当前输入的内容到 session state
+                    st.session_state.json1_content = json1
+                    st.session_state.json2_content = json2
+
                     if json1.strip():
                         parsed_json1 = json.loads(json1)
                         formatted_json1 = json.dumps(parsed_json1, indent=2, ensure_ascii=False)
@@ -1855,6 +1865,9 @@ elif tool_category == "JSON处理工具":
                         parsed_json2 = json.loads(json2)
                         formatted_json2 = json.dumps(parsed_json2, indent=2, ensure_ascii=False)
                         st.session_state.json2_content = formatted_json2
+
+                    st.session_state.clear_counter += 1  # 增加计数器强制重新渲染
+                    st.rerun()
                 except json.JSONDecodeError as e:
                     st.error(f"JSON格式错误: {e}")
 
@@ -1863,8 +1876,14 @@ elif tool_category == "JSON处理工具":
 
         with button_cols[2]:
             if st.button("🔄 交换数据", use_container_width=True, key="swap_data"):
+                # 先同步当前输入的内容到 session state
+                st.session_state.json1_content = json1
+                st.session_state.json2_content = json2
+                # 然后交换数据
                 st.session_state.json1_content, st.session_state.json2_content = \
                     st.session_state.json2_content, st.session_state.json1_content
+                st.session_state.clear_counter += 1  # 增加计数器强制重新渲染
+                st.rerun()
 
         with button_cols[3]:
             if st.button("🗑️ 清空全部", use_container_width=True, key="clear_all"):
@@ -1872,9 +1891,15 @@ elif tool_category == "JSON处理工具":
                 st.session_state.json2_content = ""
                 st.session_state.comparison_result = None
                 st.session_state.differences_text = ""
+                st.session_state.clear_counter += 1  # 增加计数器强制重新渲染
+                st.rerun()
 
         # 处理对比结果
         if compare_clicked:
+            # 同步当前输入的内容到 session state
+            st.session_state.json1_content = json1
+            st.session_state.json2_content = json2
+
             if json1 and json2:
                 try:
                     obj1 = json.loads(json1)
