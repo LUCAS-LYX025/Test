@@ -649,63 +649,466 @@ if tool_category == "数据生成工具":
 elif tool_category == "字数统计工具":
     show_doc("word_counter")
 
-    text_input = st.text_area("输入要统计的文本", height=200, placeholder="在此处输入或粘贴文本...")
+    # 添加CSS样式
+    st.markdown("""
+    <style>
+    .metric-card {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        border-left: 4px solid;
+        margin-bottom: 1rem;
+    }
+    .progress-bar {
+        height: 8px;
+        background: #e2e8f0;
+        border-radius: 4px;
+        margin: 0.5rem 0;
+        overflow: hidden;
+    }
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # 侧边栏设置
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🎯 字数目标设置")
+
+    target_words = st.sidebar.number_input("设定目标单词数", min_value=0, value=1000, step=100)
+    target_chars = st.sidebar.number_input("设定目标字符数", min_value=0, value=5000, step=500)
+
+    st.sidebar.markdown("### 🎨 显示选项")
+    show_charts = st.sidebar.checkbox("显示图表", value=True)
+    show_advanced = st.sidebar.checkbox("显示高级分析", value=False)
+    show_suggestions = st.sidebar.checkbox("显示编辑建议", value=True)
+
+    text_input = st.text_area("输入要统计的文本", height=200, placeholder="在此处输入或粘贴文本...", key="word_counter_text")
 
     if text_input:
-        # 指标卡片布局
+        # 基础统计计算
+        words = text_input.split()
+        lines = text_input.split('\n')
+        paragraphs = [p for p in text_input.split('\n\n') if p.strip()]
+        char_freq = Counter(text_input)
+
+        # 字符类型统计
+        import string
+
+        letters = sum(1 for char in text_input if char.isalpha())
+        digits = sum(1 for char in text_input if char.isdigit())
+        spaces = text_input.count(' ')
+        punctuation = sum(1 for char in text_input if char in string.punctuation)
+        chinese_chars = sum(1 for char in text_input if '\u4e00' <= char <= '\u9fff')
+
+        # 句子统计（简单实现）
+        sentences = [s.strip() for s in text_input.replace('。', '.').replace('！', '!').replace('？', '?').split('.') if
+                     s.strip()]
+        sentences.extend([s.strip() for s in text_input.split('!') if s.strip()])
+        sentences.extend([s.strip() for s in text_input.split('?') if s.strip()])
+        sentences = [s for s in sentences if s]
+
+        # 主要指标卡片布局
+        st.markdown("### 📊 主要统计指标")
         col1, col2, col3, col4, col5 = st.columns(5)
+
         with col1:
             st.markdown(f"""
-            <div class="metric-card">
-                <div style="font-size: 1.2rem; font-weight: 600; color: #667eea;">字符数（含空格）</div>
-                <div style="font-size: 2rem; font-weight: 700; color: #2d3748;">{len(text_input)}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div style="font-size: 1.2rem; font-weight: 600; color: #48bb78;">字符数（不含空格）</div>
-                <div style="font-size: 2rem; font-weight: 700; color: #2d3748;">{len(text_input.replace(' ', ''))}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with col3:
-            words = text_input.split()
-            st.markdown(f"""
-            <div class="metric-card">
-                <div style="font-size: 1.2rem; font-weight: 600; color: #ed8936;">单词数</div>
-                <div style="font-size: 2rem; font-weight: 700; color: #2d3748;">{len(words)}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with col4:
-            lines = text_input.split('\n')
-            st.markdown(f"""
-            <div class="metric-card">
-                <div style="font-size: 1.2rem; font-weight: 600; color: #9f7aea;">行数</div>
-                <div style="font-size: 2rem; font-weight: 700; color: #2d3748;">{len(lines)}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with col5:
-            paragraphs = [p for p in text_input.split('\n\n') if p.strip()]
-            st.markdown(f"""
-            <div class="metric-card">
-                <div style="font-size: 1.2rem; font-weight: 600; color: #f56565;">段落数</div>
-                <div style="font-size: 2rem; font-weight: 700; color: #2d3748;">{len(paragraphs)}</div>
+            <div class="metric-card" style="border-left-color: #667eea;">
+                <div style="font-size: 1rem; font-weight: 600; color: #667eea;">字符数（含空格）</div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: #2d3748;">{len(text_input):,}</div>
             </div>
             """, unsafe_allow_html=True)
 
-        st.markdown('<div class="category-card">📊 详细统计信息</div>', unsafe_allow_html=True)
-        char_freq = Counter(text_input)
-        sorted_chars = char_freq.most_common(10)
-        if sorted_chars:
+        with col2:
+            st.markdown(f"""
+            <div class="metric-card" style="border-left-color: #48bb78;">
+                <div style="font-size: 1rem; font-weight: 600; color: #48bb78;">字符数（不含空格）</div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: #2d3748;">{len(text_input.replace(' ', '')):,}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col3:
+            st.markdown(f"""
+            <div class="metric-card" style="border-left-color: #ed8936;">
+                <div style="font-size: 1rem; font-weight: 600; color: #ed8936;">单词数</div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: #2d3748;">{len(words):,}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col4:
+            st.markdown(f"""
+            <div class="metric-card" style="border-left-color: #9f7aea;">
+                <div style="font-size: 1rem; font-weight: 600; color: #9f7aea;">行数</div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: #2d3748;">{len(lines):,}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col5:
+            st.markdown(f"""
+            <div class="metric-card" style="border-left-color: #f56565;">
+                <div style="font-size: 1rem; font-weight: 600; color: #f56565;">段落数</div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: #2d3748;">{len(paragraphs):,}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # 进度跟踪
+        if target_words > 0 or target_chars > 0:
+            st.markdown("### 🎯 目标进度")
+            progress_col1, progress_col2 = st.columns(2)
+
+            with progress_col1:
+                if target_words > 0:
+                    word_progress = min(len(words) / target_words, 1.0)
+                    st.write(f"单词进度: {len(words)}/{target_words}")
+                    st.markdown(f"""
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {word_progress * 100}%"></div>
+                    </div>
+                    <div style="text-align: center; font-size: 0.9rem; color: #666;">{word_progress * 100:.1f}%</div>
+                    """, unsafe_allow_html=True)
+
+                    if len(words) >= target_words:
+                        st.success("🎉 恭喜！已达到目标单词数！")
+
+            with progress_col2:
+                if target_chars > 0:
+                    char_progress = min(len(text_input) / target_chars, 1.0)
+                    st.write(f"字符进度: {len(text_input)}/{target_chars}")
+                    st.markdown(f"""
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {char_progress * 100}%"></div>
+                    </div>
+                    <div style="text-align: center; font-size: 0.9rem; color: #666;">{char_progress * 100:.1f}%</div>
+                    """, unsafe_allow_html=True)
+
+                    if len(text_input) >= target_chars:
+                        st.success("🎉 恭喜！已达到目标字符数！")
+
+        # 字符类型统计
+        st.markdown("### 🔤 字符类型分析")
+        col6, col7, col8, col9, col10 = st.columns(5)
+
+        with col6:
+            st.metric("字母数", f"{letters:,}")
+        with col7:
+            st.metric("数字数", f"{digits:,}")
+        with col8:
+            st.metric("标点符号", f"{punctuation:,}")
+        with col9:
+            st.metric("空格数", f"{spaces:,}")
+        with col10:
+            st.metric("中文字符", f"{chinese_chars:,}")
+
+        # 文本质量指标
+        st.markdown("### 📈 文本质量指标")
+        col11, col12, col13, col14 = st.columns(4)
+
+        with col11:
+            avg_word_length = sum(len(word) for word in words) / len(words) if words else 0
+            st.metric("平均词长", f"{avg_word_length:.1f}字符")
+
+        with col12:
+            avg_sentence_length = len(words) / len(sentences) if sentences else 0
+            st.metric("平均句长", f"{avg_sentence_length:.1f}词")
+
+        with col13:
+            reading_time = len(words) / 200  # 按200词/分钟
+            st.metric("阅读时间", f"{reading_time:.1f}分钟")
+
+        with col14:
+            avg_paragraph_length = len(words) / len(paragraphs) if paragraphs else 0
+            st.metric("平均段落长", f"{avg_paragraph_length:.1f}词")
+
+        # 图表显示
+        if show_charts:
+            st.markdown("### 📊 可视化分析")
+
+            try:
+                import plotly.express as px
+                import plotly.graph_objects as go
+                import pandas as pd
+
+                tab1, tab2, tab3 = st.tabs(["字符频率", "类型分布", "文本结构"])
+
+                with tab1:
+                    top_chars = char_freq.most_common(15)
+                    if top_chars:
+                        chars, freqs = zip(*top_chars)
+                        SPECIAL_CHARS_DISPLAY = {
+                            ' ': "空格",
+                            '\n': "换行",
+                            '\t': "制表符",
+                            '\r': "回车"
+                        }
+                        char_display = [SPECIAL_CHARS_DISPLAY.get(char, char) for char in chars]
+
+                        fig = px.bar(
+                            x=freqs, y=char_display,
+                            orientation='h',
+                            title='Top 15 字符频率',
+                            labels={'x': '出现次数', 'y': '字符'}
+                        )
+                        fig.update_layout(yaxis={'categoryorder': 'total ascending'})
+                        st.plotly_chart(fig)
+
+                with tab2:
+                    type_data = {
+                        '字母': letters,
+                        '数字': digits,
+                        '标点': punctuation,
+                        '空格': spaces,
+                        '中文': chinese_chars,
+                        '其他': len(text_input) - (letters + digits + punctuation + spaces + chinese_chars)
+                    }
+                    type_data = {k: v for k, v in type_data.items() if v > 0}
+
+                    if type_data:
+                        fig = px.pie(
+                            values=list(type_data.values()),
+                            names=list(type_data.keys()),
+                            title='字符类型分布'
+                        )
+                        st.plotly_chart(fig)
+
+                with tab3:
+                    structure_data = {
+                        '字符': len(text_input),
+                        '单词': len(words),
+                        '句子': len(sentences),
+                        '行数': len(lines),
+                        '段落': len(paragraphs)
+                    }
+
+                    fig = px.bar(
+                        x=list(structure_data.keys()),
+                        y=list(structure_data.values()),
+                        title='文本结构概览',
+                        labels={'x': '统计类型', 'y': '数量'},
+                        color=list(structure_data.keys()),
+                        color_discrete_sequence=['#667eea', '#48bb78', '#ed8936', '#9f7aea', '#f56565']
+                    )
+                    st.plotly_chart(fig)
+
+            except ImportError:
+                st.warning("高级图表需要 plotly 库。请安装: `pip install plotly`")
+                # 回退到 streamlit 原生图表
+                st.info("使用基础图表显示...")
+
+        # 字符频率详情
+        st.markdown("### 🔍 字符频率详情")
+        SPECIAL_CHARS_DISPLAY = {
+            ' ': "[空格]",
+            '\n': "[换行]",
+            '\t': "[制表符]",
+            '\r': "[回车]"
+        }
+
+        col_freq1, col_freq2 = st.columns(2)
+
+        with col_freq1:
             st.write("**最常见字符（前10个）:**")
-            SPECIAL_CHARS_DISPLAY = {
-                ' ': "[空格]",
-                '\n': "[换行]",
-                '\t': "[制表符]"
-            }
+            sorted_chars = char_freq.most_common(10)
             for char, freq in sorted_chars:
                 display_char = SPECIAL_CHARS_DISPLAY.get(char, char)
-                st.write(f"`{display_char}`: {freq}次")
+                st.write(f"`{display_char}`: {freq:,}次 ({freq / len(text_input) * 100:.2f}%)")
+
+        with col_freq2:
+            st.write("**最罕见字符（后10个）:**")
+            rare_chars = char_freq.most_common()[-10:]
+            for char, freq in rare_chars:
+                display_char = SPECIAL_CHARS_DISPLAY.get(char, char)
+                st.write(f"`{display_char}`: {freq:,}次")
+
+        # 编辑建议
+        if show_suggestions:
+            st.markdown("### 📝 编辑建议")
+            suggestions = []
+
+            if len(text_input) < 50:
+                suggestions.append("📝 **文本较短**: 建议补充更多内容以丰富文本")
+            elif len(text_input) > 10000:
+                suggestions.append("📝 **文本较长**: 考虑是否可拆分或精简")
+
+            if sentences and len(words) / len(sentences) > 25:
+                suggestions.append("📝 **句子偏长**: 平均句长超过25词，建议拆分长句以提升可读性")
+
+            if any(len(word) > 20 for word in words):
+                suggestions.append("📝 **超长单词**: 文本中包含较长的单词，检查是否需要简化")
+
+            if len(paragraphs) > 0 and len(words) / len(paragraphs) > 300:
+                suggestions.append("📝 **段落过长**: 考虑将长段落拆分为多个段落")
+
+            if len(set(words)) / len(words) < 0.5:
+                suggestions.append("📝 **词汇重复**: 词汇多样性较低，建议使用更多不同的词汇")
+
+            if suggestions:
+                for suggestion in suggestions:
+                    st.info(suggestion)
+            else:
+                st.success("✅ 文本结构良好，无明显问题")
+
+        # 高级分析
+        if show_advanced:
+            st.markdown("### 🔬 高级分析")
+
+            advanced_tab1, advanced_tab2 = st.tabs(["重复内容分析", "文本预览"])
+
+            with advanced_tab1:
+                # 重复单词分析
+                word_freq = Counter(words)
+                repeated_words = [(word, freq) for word, freq in word_freq.items() if freq > 3 and len(word) > 2]
+
+                if repeated_words:
+                    st.write("**高频重复词汇 (出现3次以上):**")
+                    repeated_col1, repeated_col2 = st.columns(2)
+                    mid_point = len(repeated_words) // 2
+
+                    with repeated_col1:
+                        for word, freq in repeated_words[:mid_point]:
+                            st.write(f"`{word}`: {freq}次")
+
+                    with repeated_col2:
+                        for word, freq in repeated_words[mid_point:]:
+                            st.write(f"`{word}`: {freq}次")
+                else:
+                    st.info("未发现高频重复词汇")
+
+            with advanced_tab2:
+                # 文本预览
+                st.write("**文本预览 (前500字符):**")
+                preview = text_input[:500] + "..." if len(text_input) > 500 else text_input
+                st.text_area("预览", preview, height=150, key="preview_area")
+
+        # 导出功能
+        st.markdown("### 📤 导出统计结果")
+
+        import json
+        import pandas as pd
+
+        # 创建完整的统计字典
+        stats = {
+            "基础统计": {
+                "字符数（含空格）": len(text_input),
+                "字符数（不含空格）": len(text_input.replace(' ', '')),
+                "单词数": len(words),
+                "句子数": len(sentences),
+                "行数": len(lines),
+                "段落数": len(paragraphs)
+            },
+            "字符类型": {
+                "字母数": letters,
+                "数字数": digits,
+                "标点符号": punctuation,
+                "空格数": spaces,
+                "中文字符": chinese_chars
+            },
+            "质量指标": {
+                "平均词长": round(avg_word_length, 2),
+                "平均句长": round(avg_sentence_length, 2),
+                "平均段落长": round(avg_paragraph_length, 2),
+                "阅读时间(分钟)": round(reading_time, 2)
+            }
+        }
+
+        export_col1, export_col2, export_col3 = st.columns(3)
+
+        with export_col1:
+            # JSON导出
+            st.download_button(
+                label="📥 导出为JSON",
+                data=json.dumps(stats, indent=2, ensure_ascii=False),
+                file_name="文本统计报告.json",
+                mime="application/json"
+            )
+
+        with export_col2:
+            # CSV导出
+            csv_data = []
+            for category, items in stats.items():
+                for key, value in items.items():
+                    csv_data.append({"类别": category, "指标": key, "数值": value})
+
+            df = pd.DataFrame(csv_data)
+            csv_string = df.to_csv(index=False)
+            st.download_button(
+                label="📥 导出为CSV",
+                data=csv_string,
+                file_name="文本统计报告.csv",
+                mime="text/csv"
+            )
+
+        with export_col3:
+            # 文本报告导出
+            report_text = f"""文本统计报告
+生成时间: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+==============================
+
+基础统计:
+--------
+字符数（含空格）: {len(text_input):,}
+字符数（不含空格）: {len(text_input.replace(' ', '')):,}
+单词数: {len(words):,}
+句子数: {len(sentences):,}
+行数: {len(lines):,}
+段落数: {len(paragraphs):,}
+
+字符类型:
+--------
+字母数: {letters:,}
+数字数: {digits:,}
+标点符号: {punctuation:,}
+空格数: {spaces:,}
+中文字符: {chinese_chars:,}
+
+质量指标:
+--------
+平均词长: {avg_word_length:.2f}
+平均句长: {avg_sentence_length:.2f}
+平均段落长: {avg_paragraph_length:.2f}
+阅读时间: {reading_time:.2f}分钟
+"""
+            st.download_button(
+                label="📥 导出为文本报告",
+                data=report_text,
+                file_name="文本统计报告.txt",
+                mime="text/plain"
+            )
+
+    else:
+        # 没有输入时的提示
+        st.info("👆 请在上方文本框中输入文本以开始统计")
+
+        # 示例文本
+        with st.expander("📋 点击查看示例文本"):
+            sample_text = """这是一个示例文本，用于展示字数统计工具的功能。
+
+你可以在这里输入任意文本，工具会自动计算：
+- 字符数（包含和不包含空格）
+- 单词数量
+- 行数和段落数
+- 各种字符类型的分布
+
+此外，工具还提供：
+📊 可视化图表分析
+📝 文本编辑建议
+📈 质量评估指标
+📤 多种格式导出功能
+
+尝试复制你自己的文本到这里，看看详细的统计结果！"""
+            st.text_area("示例文本", sample_text, height=200, key="sample_text")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
