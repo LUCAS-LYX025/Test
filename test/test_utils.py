@@ -1266,48 +1266,35 @@ elif tool_category == "文本对比工具":
             st.caption(f"📊 统计: {lines2} 行, {words2} 词, {chars2} 字符")
 
     # 操作按钮区域
+    # 操作按钮区域
     button_col1, button_col2, button_col3, button_col4 = st.columns([1, 1, 1, 1])
 
     with button_col1:
         compare_clicked = st.button("🔄 开始对比", use_container_width=True)
-    # 在交换按钮中添加调试信息
+
     with button_col2:
         if st.button("📋 交换文本", use_container_width=True):
-            # 调试：打印交换前的值
-            st.write(f"交换前 - text1: {st.session_state.text1_content[:50]}...")
-            st.write(f"交换前 - text2: {st.session_state.text2_content[:50]}...")
-
-            # 执行交换
+            # 先同步当前输入框的内容到 session state
+            st.session_state.text1_content = text1
+            st.session_state.text2_content = text2
+            # 然后交换
             st.session_state.text1_content, st.session_state.text2_content = \
                 st.session_state.text2_content, st.session_state.text1_content
-
-            # 增加计数器强制重新渲染
             st.session_state.clear_counter += 1
-
-            # 调试：打印交换后的值
-            st.write(f"交换后 - text1: {st.session_state.text1_content[:50]}...")
-            st.write(f"交换后 - text2: {st.session_state.text2_content[:50]}...")
-
             st.rerun()
-    # with button_col2:
-    #     if st.button("📋 交换文本", use_container_width=True):
-    #         st.session_state.text1_content, st.session_state.text2_content = \
-    #             st.session_state.text2_content, st.session_state.text1_content
-    #         st.session_state.clear_counter += 1
-    #         st.rerun()
 
     with button_col3:
         if st.button("📁 导入示例", use_container_width=True):
             # 提供更适合词对比的示例文本
             st.session_state.text1_content = """这是一个示例文本，用于演示词对比功能。
-第一行包含一些单词。
-第二行有更多的内容。
-第三行是最后一行。"""
+    第一行包含一些单词。
+    第二行有更多的内容。
+    第三行是最后一行。"""
 
             st.session_state.text2_content = """这是一个示范文本，用于演示词汇对比功能。
-第一行包含某些词语。
-第二行有更多不同的内容。
-新增的第四行文本。"""
+    第一行包含某些词语。
+    第二行有更多不同的内容。
+    新增的第四行文本。"""
             st.session_state.clear_counter += 1
             st.rerun()
 
@@ -1357,6 +1344,8 @@ elif tool_category == "文本对比工具":
                 )
 
     if compare_clicked:
+        st.session_state.text1_content = text1
+        st.session_state.text2_content = text2
         if text1 and text2:
             try:
                 # 预处理文本
