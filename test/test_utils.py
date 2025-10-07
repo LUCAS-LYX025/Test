@@ -1748,8 +1748,6 @@ elif tool_category == "JSON处理工具":
             st.session_state.parse_result = None
         if 'parse_error' not in st.session_state:
             st.session_state.parse_error = None
-        if 'copy_clicked' not in st.session_state:
-            st.session_state.copy_clicked = False
 
         # 输入区域
         st.markdown("**JSON输入**")
@@ -1785,20 +1783,17 @@ elif tool_category == "JSON处理工具":
                         st.session_state.parse_error = str(e)
 
         with col3:
-            # 使用 st.download_button 作为替代方案
+            # 使用统一的复制按钮
             if st.session_state.parse_result is not None:
                 formatted_json = json.dumps(st.session_state.parse_result, indent=2, ensure_ascii=False)
-                st.download_button(
-                    "📋 复制结果",
+                create_copy_button(
                     formatted_json,
-                    file_name="json_data.json",
-                    mime="application/json",
-                    use_container_width=True,
-                    key="download_json"
+                    button_text="📋 复制结果",
+                    key="copy_json_result"
                 )
             else:
-                if st.button("📋 复制结果", use_container_width=True, disabled=True, key="copy_disabled"):
-                    pass
+                # 禁用状态的按钮
+                st.button("📋 复制结果", use_container_width=True, disabled=True, key="copy_disabled")
 
         with col4:
             if st.button("🗑️ 清空", use_container_width=True, key="clear_json"):
@@ -1814,9 +1809,10 @@ elif tool_category == "JSON处理工具":
             with st.expander("📄 格式化JSON", expanded=True):
                 st.code(formatted_json, language='json')
 
-            # 添加一个文本区域用于手动复制（更可靠）
-            st.markdown("**或者手动复制：**")
-            st.text_area("复制区域", formatted_json, height=200, key="copy_area")
+            # 显示错误信息（如果有）
+            if st.session_state.parse_error:
+                st.error(f"解析错误: {st.session_state.parse_error}")
+
 
     elif tool_mode == "JSON数据对比":
         show_doc("json_comparison")
