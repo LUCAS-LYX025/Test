@@ -237,6 +237,7 @@ class ImageProcessor:
         elif sys.platform.startswith("linux"):
             current_dir = os.path.dirname(os.path.abspath(__file__))
             font_paths.extend([
+                os.path.join(current_dir, "fonts", "PingFang.ttc"),
                 # 中文相关字体
                 "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",  # Android 字体
                 "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",  # 文泉驿微米黑
@@ -270,7 +271,6 @@ class ImageProcessor:
 
                 # 容器/云环境常见字体
                 "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-                os.path.join(current_dir, "fonts", "PingFang.ttc")
             ])
             st.info("🐧 检测到 Linux 系统，使用 Linux 字体路径")
 
