@@ -41,6 +41,19 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 import codecs
+# 在导入部分添加
+try:
+    import pytesseract
+    from io import BytesIO
+    import cv2
+    import xmind
+    from xmind.core.markerref import MarkerId
+    from PIL import Image
+    import numpy as np
+    import openpyxl
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
 
 # 导入Faker库
 try:
@@ -65,6 +78,88 @@ st.markdown(CSS_STYLES, unsafe_allow_html=True)
 
 
 # ================ 辅助函数 ================
+# 添加辅助函数
+def call_ali_testcase_api(requirement, api_key, id_prefix):
+    """调用阿里大模型API生成测试用例"""
+    import requests
+    import json
+    import re
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    prompt = f"""你是一位资深软件测试专家，请基于以下需求生成测试用例：
+
+需求描述：
+{requirement}
+
+请生成全面、精准的测试用例，每个测试用例包含以下字段：
+- 用例ID：格式为{id_prefix}001, {id_prefix}002等
+- 用例名称：清晰描述测试场景
+- 前置条件：执行测试前需要满足的条件
+- 测试步骤：详细的测试操作步骤
+- 预期结果：期望的输出或行为
+- 优先级：高、中、低
+
+请确保测试用例：
+1. 覆盖所有主要功能点
+2. 包含正常和异常场景
+3. 考虑边界条件和错误处理
+4. 优先级设置合理
+
+请以严格的JSON数组格式返回。"""
+
+    payload = {
+        "model": "qwen-turbo",
+        "input": {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        },
+        "parameters": {
+            "result_format": "text"
+        }
+    }
+
+    try:
+        response = requests.post(
+            "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+        response.raise_for_status()
+        response_data = response.json()
+
+        if "output" in response_data and "text" in response_data["output"]:
+            result_text = response_data["output"]["text"]
+
+            # 提取JSON
+            json_pattern = r'\[\s*\{.*\}\s*\]'
+            match = re.search(json_pattern, result_text, re.DOTALL)
+            if match:
+                json_str = match.group()
+                test_cases = json.loads(json_str)
+
+                # 确保用例ID格式正确
+                for i, test_case in enumerate(test_cases):
+                    if "用例ID" not in test_case or not test_case["用例ID"].startswith(id_prefix):
+                        test_case["用例ID"] = f"{id_prefix}{i + 1:03d}"
+
+                return test_cases
+            else:
+                raise Exception("无法从API响应中解析出测试用例数据")
+        else:
+            raise Exception("API响应格式错误")
+
+    except Exception as e:
+        raise Exception(f"API调用失败: {str(e)}")
+
 def generate_regex_from_examples(text, examples):
     """根据示例文本生成正则表达式"""
     if not text or not examples:
@@ -4114,6 +4209,281 @@ MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQD{base64.b64encode(os.urandom(
                         st.error(f"解密失败: {e}")
 
     st.markdown('</div>', unsafe_allow_html=True)
+
+# 在工具选择部分之后添加测试用例生成器
+# 在工具选择部分之后添加测试用例生成器
+elif tool_category == "测试用例生成器":
+    show_doc("test_case_generator")
+
+    # 初始化session state
+    if 'test_cases' not in st.session_state:
+        st.session_state.test_cases = []
+    if 'requirement_history' not in st.session_state:
+        st.session_state.requirement_history = []
+    if 'current_requirement' not in st.session_state:
+        st.session_state.current_requirement = ""
+    if 'ocr_text' not in st.session_state:
+        st.session_state.ocr_text = ""
+
+    # 使用计数器来管理输入框状态
+    if 'testcase_input_counter' not in st.session_state:
+        st.session_state.testcase_input_counter = 0
+        st.session_state.current_requirement_input = ""
+
+    # API配置
+    st.markdown("### 🔑 API配置")
+    col1, col2 = st.columns(2)
+    with col1:
+        api_key = st.text_input("阿里大模型API Key",
+                                value="",
+                                type="password",
+                                help="请确保使用有效的API密钥",
+                                key="api_key_input")
+    with col2:
+        id_prefix = st.text_input("用例ID前缀", value="TC", help="例如: TC、TEST、CASE等", key="id_prefix_input")
+
+    # 图片OCR功能
+    st.markdown("### 🖼️ 图片OCR处理")
+    uploaded_file = st.file_uploader("上传需求图片", type=['png', 'jpg', 'jpeg', 'bmp'],
+                                     help="支持PNG、JPG、JPEG、BMP格式",
+                                     key="image_uploader")
+
+    if uploaded_file is not None:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.image(uploaded_file, caption="上传的图片", use_container_width=True)
+        with col2:
+            if st.button("提取图片文字", use_container_width=True, key="extract_text_btn"):
+                with st.spinner("正在提取图片中的文字..."):
+                    try:
+                        # 处理图片
+                        image = Image.open(uploaded_file)
+                        img_array = np.array(image)
+
+                        # 转换为灰度图
+                        if len(img_array.shape) == 3:
+                            gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+                        else:
+                            gray = img_array
+
+                        # 应用二值化处理
+                        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+                        # OCR识别
+                        try:
+                            text = pytesseract.image_to_string(thresh, lang='chi_sim+eng')
+                        except:
+                            text = pytesseract.image_to_string(thresh, lang='eng')
+
+                        st.session_state.ocr_text = text
+                        st.success("文字提取完成！")
+
+                    except Exception as e:
+                        st.error(f"OCR处理失败: {str(e)}")
+
+    # 显示OCR结果和使用按钮
+    if st.session_state.ocr_text:
+        st.text_area("OCR识别结果", st.session_state.ocr_text, height=150, key="ocr_preview")
+        if st.button("使用OCR结果作为需求", key="use_ocr_btn"):
+            st.session_state.current_requirement_input = st.session_state.ocr_text
+            st.session_state.testcase_input_counter += 1
+            st.rerun()
+
+    # 需求输入区域
+    st.markdown("### 📝 需求输入")
+
+    # 定义示例数据
+    simple_example = """需求描述：测试一个简单的计算器加法功能
+
+功能要求：
+1. 用户可以输入两个数字
+2. 点击计算按钮进行加法运算
+3. 显示计算结果
+
+输入验证：
+- 只能输入数字
+- 不能为空"""
+
+    medium_example = """需求描述：测试用户登录功能
+
+功能要求：
+1. 用户可以通过用户名和密码登录系统
+2. 支持记住登录状态功能
+3. 提供忘记密码功能
+4. 登录失败时有适当的错误提示
+5. 成功登录后跳转到用户主页
+
+输入验证：
+- 用户名：必填，支持邮箱或手机号格式
+- 密码：必填，最少6个字符
+
+安全要求：
+- 连续5次登录失败后锁定账户30分钟"""
+
+    complex_example = """需求描述：测试电商平台的完整订单流程
+
+功能模块：
+1. 商品浏览和搜索
+2. 购物车管理
+3. 订单创建和支付
+4. 订单状态跟踪
+5. 售后和退款
+
+业务流程：
+- 用户浏览商品并加入购物车
+- 用户结算生成订单
+- 用户选择支付方式完成支付
+- 商家发货并更新物流信息
+- 用户确认收货或申请售后"""
+
+    # 示例需求选择
+    st.markdown("**快速选择示例需求：**")
+    example_col1, example_col2, example_col3 = st.columns(3)
+
+    with example_col1:
+        if st.button("📱 简单功能示例", use_container_width=True, key="simple_example_btn"):
+            st.session_state.current_requirement_input = simple_example
+            st.session_state.testcase_input_counter += 1
+            st.rerun()
+
+    with example_col2:
+        if st.button("🔐 中等功能示例", use_container_width=True, key="medium_example_btn"):
+            st.session_state.current_requirement_input = medium_example
+            st.session_state.testcase_input_counter += 1
+            st.rerun()
+
+    with example_col3:
+        if st.button("🛒 复杂功能示例", use_container_width=True, key="complex_example_btn"):
+            st.session_state.current_requirement_input = complex_example
+            st.session_state.testcase_input_counter += 1
+            st.rerun()
+
+    # 需求输入框
+    requirement = st.text_area("需求描述",
+                               value=st.session_state.current_requirement_input,
+                               height=200,
+                               placeholder="请输入详细的需求描述...",
+                               key=f"requirement_input_{st.session_state.testcase_input_counter}",
+                               help="描述要测试的功能需求，越详细生成的测试用例越准确")
+
+    # 操作按钮
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col1:
+        if st.button("清空输入", use_container_width=True, key="clear_input_btn"):
+            st.session_state.current_requirement_input = ""
+            st.session_state.testcase_input_counter += 1
+            st.session_state.ocr_text = ""
+            st.rerun()
+
+    with col2:
+        generate_btn = st.button("🧠 AI生成测试用例",
+                                 use_container_width=True,
+                                 disabled=not requirement.strip(),
+                                 key="generate_testcases_btn")
+
+    with col3:
+        if st.button("查看示例详情", use_container_width=True, key="view_examples_btn"):
+            with st.expander("📋 示例需求详情", expanded=True):
+                tab1, tab2, tab3 = st.tabs(["简单功能", "中等功能", "复杂功能"])
+                with tab1:
+                    st.code(simple_example)
+                with tab2:
+                    st.code(medium_example)
+                with tab3:
+                    st.code(complex_example)
+
+    if generate_btn and requirement.strip():
+        if not api_key:
+            st.error("请输入阿里大模型API Key")
+            st.stop()
+
+        with st.spinner("🤖 AI正在分析需求并生成测试用例..."):
+            try:
+                # 调用阿里大模型API
+                test_cases = call_ali_testcase_api(requirement, api_key, id_prefix)
+                st.session_state.test_cases = test_cases
+                st.session_state.current_requirement = requirement
+
+                # 添加到历史记录
+                history_item = {
+                    "timestamp": time.strftime("%Y-%m-%d %H:%M"),
+                    "requirement": requirement[:100] + "..." if len(requirement) > 100 else requirement,
+                    "case_count": len(test_cases),
+                    "full_requirement": requirement  # 保存完整需求用于重新加载
+                }
+                st.session_state.requirement_history.insert(0, history_item)
+
+                st.success(f"✅ 成功生成 {len(test_cases)} 个测试用例！")
+
+            except Exception as e:
+                st.error(f"生成测试用例失败: {str(e)}")
+
+    # 显示生成的测试用例
+    if st.session_state.test_cases:
+        st.markdown("### 📊 生成的测试用例")
+
+        # 统计信息
+        total_cases = len(st.session_state.test_cases)
+        priority_count = {'高': 0, '中': 0, '低': 0}
+        for case in st.session_state.test_cases:
+            priority = case.get('优先级', '中')
+            if priority in priority_count:
+                priority_count[priority] += 1
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("总用例数", total_cases)
+        with col2:
+            st.metric("高优先级", priority_count['高'])
+        with col3:
+            st.metric("中优先级", priority_count['中'])
+        with col4:
+            st.metric("低优先级", priority_count['低'])
+
+        # 测试用例表格
+        df = pd.DataFrame(st.session_state.test_cases)
+        st.dataframe(df, use_container_width=True, height=400)
+
+        # 导出功能（只保留Excel导出）
+        st.markdown("### 📤 导出测试用例")
+        if st.button("📊 导出Excel文件", use_container_width=True, key="export_excel_btn"):
+            try:
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                filename = f"测试用例_{timestamp}.xlsx"
+
+                # 创建DataFrame并导出
+                df = pd.DataFrame(st.session_state.test_cases)
+                excel_buffer = io.BytesIO()
+                df.to_excel(excel_buffer, index=False, engine='openpyxl')
+                excel_buffer.seek(0)
+
+                st.download_button(
+                    label="📥 下载Excel文件",
+                    data=excel_buffer.getvalue(),
+                    file_name=filename,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="download_excel_btn"
+                )
+            except Exception as e:
+                st.error(f"导出Excel失败: {str(e)}")
+
+    # 历史记录
+    if st.session_state.requirement_history:
+        st.markdown("### 📚 生成历史")
+        for i, history in enumerate(st.session_state.requirement_history[:5]):  # 显示最近5条
+            with st.expander(f"{history['timestamp']} - {history['requirement']} ({history['case_count']}个用例)"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button(f"重新加载此需求", key=f"reload_history_{i}"):
+                        st.session_state.current_requirement_input = history.get('full_requirement',
+                                                                                 history['requirement'])
+                        st.session_state.testcase_input_counter += 1
+                        st.rerun()
+                with col2:
+                    if st.button(f"查看用例详情", key=f"view_history_{i}"):
+                        st.info(f"此历史记录包含 {history['case_count']} 个测试用例")
+
 
 # 页脚
 st.markdown("---")
