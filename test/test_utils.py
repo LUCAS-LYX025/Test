@@ -1,11 +1,3 @@
-# 先导入标准库
-import os
-import io
-import time
-
-# 再导入第三方库
-import cv2
-import numpy as np
 from PIL import Image
 import pytesseract
 
@@ -24,7 +16,6 @@ from ip_query_tool import IPQueryTool
 from data_generator import DataGenerator
 import sys
 import io
-import numpy as np
 
 print(sys.path)
 sys.path.append('/mount/src/test/test')
@@ -45,21 +36,13 @@ import hmac
 import binascii
 from Crypto.Cipher import AES, DES, DES3
 from Crypto.Util.Padding import pad, unpad
-from Crypto.Random import get_random_bytes
 import urllib.parse
 import html
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 import codecs
-import sys
 import os
-# 在导入部分添加
-# 然后再设置标志
-try:
-    OCR_AVAILABLE = True
-except ImportError:
-    OCR_AVAILABLE = False
 
 # 导入Faker库
 try:
@@ -81,12 +64,6 @@ st.set_page_config(
 
 # 现代化CSS样式
 st.markdown(CSS_STYLES, unsafe_allow_html=True)
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-custom_tesseract_path = os.path.join(current_dir, "fonts", "tesseract")
-
-# 配置pytesseract使用自定义的tesseract路径
-pytesseract.pytesseract.tesseract_cmd = custom_tesseract_path
 # ================ 辅助函数 ================
 # 添加辅助函数
 def call_ali_testcase_api(requirement, api_key, id_prefix):
@@ -4234,8 +4211,6 @@ elif tool_category == "测试用例生成器":
         st.session_state.requirement_history = []
     if 'current_requirement' not in st.session_state:
         st.session_state.current_requirement = ""
-    if 'ocr_text' not in st.session_state:
-        st.session_state.ocr_text = ""
 
     # 使用计数器来管理输入框状态
     if 'testcase_input_counter' not in st.session_state:
@@ -4253,53 +4228,6 @@ elif tool_category == "测试用例生成器":
                                 key="api_key_input")
     with col2:
         id_prefix = st.text_input("用例ID前缀", value="TC", help="例如: TC、TEST、CASE等", key="id_prefix_input")
-
-    # 图片OCR功能
-    st.markdown("### 🖼️ 图片OCR处理")
-    uploaded_file = st.file_uploader("上传需求图片", type=['png', 'jpg', 'jpeg', 'bmp'],
-                                     help="支持PNG、JPG、JPEG、BMP格式",
-                                     key="image_uploader")
-
-    if uploaded_file is not None:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.image(uploaded_file, caption="上传的图片", use_container_width=True)
-        with col2:
-            if st.button("提取图片文字", use_container_width=True, key="extract_text_btn"):
-                with st.spinner("正在提取图片中的文字..."):
-                    try:
-                        # 处理图片
-                        image = Image.open(uploaded_file)
-                        img_array = np.array(image)
-
-                        # 转换为灰度图
-                        if len(img_array.shape) == 3:
-                            gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
-                        else:
-                            gray = img_array
-
-                        # 应用二值化处理
-                        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-                        # OCR识别
-                        try:
-                            text = pytesseract.image_to_string(thresh, lang='chi_sim+eng')
-                        except:
-                            text = pytesseract.image_to_string(thresh, lang='eng')
-
-                        st.session_state.ocr_text = text
-                        st.success("文字提取完成！")
-
-                    except Exception as e:
-                        st.error(f"OCR处理失败: {str(e)}")
-
-    # 显示OCR结果和使用按钮
-    if st.session_state.ocr_text:
-        st.text_area("OCR识别结果", st.session_state.ocr_text, height=150, key="ocr_preview")
-        if st.button("使用OCR结果作为需求", key="use_ocr_btn"):
-            st.session_state.current_requirement_input = st.session_state.ocr_text
-            st.session_state.testcase_input_counter += 1
-            st.rerun()
 
     # 需求输入区域
     st.markdown("### 📝 需求输入")
@@ -4384,7 +4312,6 @@ elif tool_category == "测试用例生成器":
         if st.button("清空输入", use_container_width=True, key="clear_input_btn"):
             st.session_state.current_requirement_input = ""
             st.session_state.testcase_input_counter += 1
-            st.session_state.ocr_text = ""
             st.rerun()
 
     with col2:
