@@ -64,25 +64,37 @@ st.set_page_config(
 
 # 现代化CSS样式
 st.markdown(CSS_STYLES, unsafe_allow_html=True)
-# ================ 辅助函数 ================
-# 添加辅助函数
-def call_ali_testcase_api(requirement, api_key, id_prefix):
-    """调用阿里大模型API生成测试用例"""
+
+def call_ali_testcase_api(requirement, api_key, id_prefix, case_style="标准格式", language="中文"):
+    """调用阿里通义千问API生成测试用例"""
     import requests
-    import json
-    import re
 
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
 
+    # 根据风格设置提示词
+    style_instructions = {
+        "标准格式": "使用标准测试用例格式，包含清晰的步骤和预期结果",
+        "详细步骤": "提供非常详细的测试步骤，每个步骤都要具体明确",
+        "简洁格式": "使用简洁的格式，重点描述关键测试点",
+        "BDD格式(Given-When-Then)": "使用Given-When-Then格式编写测试场景"
+    }
+
+    # 根据语言设置输出要求
+    language_instruction = "所有内容请使用中文" if language == "中文" else \
+        "All content should be in English" if language == "英文" else \
+            "用例名称和描述使用中文，技术术语可保留英文"
+
     prompt = f"""你是一位资深软件测试专家，请基于以下需求生成测试用例：
 
 需求描述：
 {requirement}
 
-请生成全面、精准的测试用例，每个测试用例包含以下字段：
+请生成全面、精准的测试用例，{style_instructions[case_style]}。
+
+每个测试用例包含以下字段：
 - 用例ID：格式为{id_prefix}001, {id_prefix}002等
 - 用例名称：清晰描述测试场景
 - 前置条件：执行测试前需要满足的条件
@@ -90,13 +102,15 @@ def call_ali_testcase_api(requirement, api_key, id_prefix):
 - 预期结果：期望的输出或行为
 - 优先级：高、中、低
 
+{language_instruction}
+
 请确保测试用例：
 1. 覆盖所有主要功能点
 2. 包含正常和异常场景
 3. 考虑边界条件和错误处理
 4. 优先级设置合理
 
-请以严格的JSON数组格式返回。"""
+请以严格的JSON数组格式返回，确保JSON格式正确。"""
 
     payload = {
         "model": "qwen-turbo",
@@ -125,27 +139,243 @@ def call_ali_testcase_api(requirement, api_key, id_prefix):
 
         if "output" in response_data and "text" in response_data["output"]:
             result_text = response_data["output"]["text"]
-
-            # 提取JSON
-            json_pattern = r'\[\s*\{.*\}\s*\]'
-            match = re.search(json_pattern, result_text, re.DOTALL)
-            if match:
-                json_str = match.group()
-                test_cases = json.loads(json_str)
-
-                # 确保用例ID格式正确
-                for i, test_case in enumerate(test_cases):
-                    if "用例ID" not in test_case or not test_case["用例ID"].startswith(id_prefix):
-                        test_case["用例ID"] = f"{id_prefix}{i + 1:03d}"
-
-                return test_cases
-            else:
-                raise Exception("无法从API响应中解析出测试用例数据")
+            return parse_testcases_from_text(result_text, id_prefix, language)
         else:
             raise Exception("API响应格式错误")
 
     except Exception as e:
-        raise Exception(f"API调用失败: {str(e)}")
+        raise Exception(f"阿里通义千问API调用失败: {str(e)}")
+
+
+def call_openai_testcase_api(requirement, api_key, model_version, id_prefix, case_style="标准格式", language="中文"):
+    """调用OpenAI GPT API生成测试用例"""
+    import requests
+    import json
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    style_instructions = {
+        "标准格式": "Use standard test case format with clear steps and expected results",
+        "详细步骤": "Provide very detailed test steps, each step should be specific and clear",
+        "简洁格式": "Use concise format, focus on key test points",
+        "BDD格式(Given-When-Then)": "Write test scenarios using Given-When-Then format"
+    }
+
+    language_instruction = "所有内容请使用中文" if language == "中文" else \
+        "All content should be in English" if language == "英文" else \
+            "用例名称和描述使用中文，技术术语可保留英文"
+
+    prompt = f"""你是一位资深软件测试专家，请基于以下需求生成测试用例：
+
+需求描述：
+{requirement}
+
+请生成全面、精准的测试用例，{style_instructions[case_style]}。
+
+每个测试用例包含以下字段：
+- 用例ID：格式为{id_prefix}001, {id_prefix}002等
+- 用例名称：清晰描述测试场景
+- 前置条件：执行测试前需要满足的条件
+- 测试步骤：详细的测试操作步骤
+- 预期结果：期望的输出或行为
+- 优先级：高、中、低
+
+{language_instruction}
+
+请确保测试用例：
+1. 覆盖所有主要功能点
+2. 包含正常和异常场景
+3. 考虑边界条件和错误处理
+4. 优先级设置合理
+
+请以严格的JSON数组格式返回。"""
+
+    payload = {
+        "model": model_version,
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "temperature": 0.3,
+        "max_tokens": 4000
+    }
+
+    try:
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+        response.raise_for_status()
+        response_data = response.json()
+
+        if "choices" in response_data and len(response_data["choices"]) > 0:
+            result_text = response_data["choices"][0]["message"]["content"]
+            return parse_testcases_from_text(result_text, id_prefix, language)
+        else:
+            raise Exception("API响应格式错误")
+
+    except Exception as e:
+        raise Exception(f"OpenAI API调用失败: {str(e)}")
+
+
+def call_baidu_testcase_api(requirement, api_key, secret_key, id_prefix, case_style="标准格式", language="中文"):
+    """调用百度文心一言API生成测试用例"""
+    import requests
+
+    # 获取access_token
+    def get_access_token(api_key, secret_key):
+        url = f"https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id={api_key}&client_secret={secret_key}"
+        response = requests.post(url)
+        return response.json().get("access_token")
+
+    access_token = get_access_token(api_key, secret_key)
+
+    headers = {
+        "Content-Type": "application/json"
+    }
+
+    style_instructions = {
+        "标准格式": "使用标准测试用例格式，包含清晰的步骤和预期结果",
+        "详细步骤": "提供非常详细的测试步骤，每个步骤都要具体明确",
+        "简洁格式": "使用简洁的格式，重点描述关键测试点",
+        "BDD格式(Given-When-Then)": "使用Given-When-Then格式编写测试场景"
+    }
+
+    language_instruction = "所有内容请使用中文" if language == "中文" else \
+        "All content should be in English" if language == "英文" else \
+            "用例名称和描述使用中文，技术术语可保留英文"
+
+    prompt = f"""你是一位资深软件测试专家，请基于以下需求生成测试用例：
+
+需求描述：
+{requirement}
+
+请生成全面、精准的测试用例，{style_instructions[case_style]}。
+
+每个测试用例包含以下字段：
+- 用例ID：格式为{id_prefix}001, {id_prefix}002等
+- 用例名称：清晰描述测试场景
+- 前置条件：执行测试前需要满足的条件
+- 测试步骤：详细的测试操作步骤
+- 预期结果：期望的输出或行为
+- 优先级：高、中、低
+
+{language_instruction}
+
+请确保测试用例：
+1. 覆盖所有主要功能点
+2. 包含正常和异常场景
+3. 考虑边界条件和错误处理
+4. 优先级设置合理
+
+请以严格的JSON数组格式返回。"""
+
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "temperature": 0.3,
+        "max_tokens": 4000
+    }
+
+    try:
+        response = requests.post(
+            f"https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/completions?access_token={access_token}",
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+        response.raise_for_status()
+        response_data = response.json()
+
+        if "result" in response_data:
+            result_text = response_data["result"]
+            return parse_testcases_from_text(result_text, id_prefix, language)
+        else:
+            raise Exception("API响应格式错误")
+
+    except Exception as e:
+        raise Exception(f"百度文心一言API调用失败: {str(e)}")
+
+
+def call_spark_testcase_api(requirement, api_key, app_id, id_prefix, case_style="标准格式", language="中文"):
+    """调用讯飞星火API生成测试用例"""
+    # 简化的实现，实际需要根据讯飞星火API文档调整
+    return call_openai_testcase_api(requirement, api_key, "gpt-3.5-turbo", id_prefix, case_style, language)
+
+
+def call_glm_testcase_api(requirement, api_key, id_prefix, case_style="标准格式", language="中文"):
+    """调用智谱ChatGLM API生成测试用例"""
+    # 简化的实现，实际需要根据智谱AI API文档调整
+    return call_openai_testcase_api(requirement, api_key, "gpt-3.5-turbo", id_prefix, case_style, language)
+
+
+def parse_testcases_from_text(result_text, id_prefix, language):
+    """从API返回的文本中解析测试用例"""
+    import json
+    import re
+
+    try:
+        # 尝试直接解析JSON
+        json_pattern = r'\[\s*\{.*\}\s*\]'
+        match = re.search(json_pattern, result_text, re.DOTALL)
+        if match:
+            json_str = match.group()
+            test_cases = json.loads(json_str)
+        else:
+            # 如果没有找到JSON数组，尝试其他格式
+            raise Exception("无法从响应中解析出JSON数据")
+
+        # 标准化测试用例格式
+        standardized_cases = []
+        for i, test_case in enumerate(test_cases):
+            standardized_case = {
+                "用例ID": test_case.get("用例ID", f"{id_prefix}{i + 1:03d}"),
+                "用例名称": test_case.get("用例名称", test_case.get("用例标题", "")),
+                "前置条件": test_case.get("前置条件", test_case.get("前提条件", "")),
+                "测试步骤": test_case.get("测试步骤", test_case.get("步骤", "")),
+                "预期结果": test_case.get("预期结果", test_case.get("期望结果", "")),
+                "优先级": test_case.get("优先级", test_case.get("优先级别", "中"))
+            }
+            standardized_cases.append(standardized_case)
+
+        return standardized_cases
+
+    except Exception as e:
+        raise Exception(f"解析测试用例失败: {str(e)}")
+
+
+def generate_markdown_testcases(test_cases, requirement):
+    """生成Markdown格式的测试用例文档"""
+    md_content = f"""# 测试用例文档
+
+## 需求描述
+{requirement}
+
+## 测试用例汇总
+
+| 用例ID | 用例名称 | 优先级 | 前置条件 | 测试步骤 | 预期结果 |
+|--------|----------|--------|----------|----------|----------|
+"""
+
+    for case in test_cases:
+        md_content += f"| {case['用例ID']} | {case['用例名称']} | {case['优先级']} | {case['前置条件']} | {case['测试步骤']} | {case['预期结果']} |\n"
+
+    md_content += f"\n## 统计信息\n- 总用例数: {len(test_cases)}\n- 生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}"
+
+    return md_content
+
+
 
 
 def generate_regex_from_examples(text, examples):
