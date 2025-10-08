@@ -14,6 +14,7 @@ from data_generator import DataGenerator
 import sys
 from PIL import Image
 import io
+import numpy as np
 
 print(sys.path)
 sys.path.append('/mount/src/test/test')
