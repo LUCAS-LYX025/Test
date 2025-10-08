@@ -615,6 +615,11 @@ TOOL_CATEGORIES = {
         "icon": "🖼️",
         "description": "图片格式转换、压缩、尺寸调整",
         "color": "#ed64a6"
+    },
+    "加密/解密工具": {
+        "icon": "🔐",
+        "description": "各种加密解密算法工具",
+        "color": "#ed64a6"
     }
 }
 

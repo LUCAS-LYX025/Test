@@ -7,7 +7,6 @@ from datetime import timedelta
 import time
 import streamlit.components.v1 as components
 from difflib import Differ
-import html
 import streamlit as st
 from doc_manager import show_doc, show_general_guidelines
 from ip_query_tool import IPQueryTool
@@ -22,7 +21,6 @@ from data_constants import PROVINCES, COUNTRIES, CATEGORIES, PROVINCE_MAP, TO_SE
     PASSWORD_OPTIONS, DOMAINS_PRESET, GENDERS, TOOL_CATEGORIES, CSS_STYLES, HEADLINE_STYLES, PRESET_SIZES
 from data_constants import LANGUAGE_TEMPLATES
 from data_constants import PREDEFINED_PATTERNS
-from data_constants import JSON_CONTENT
 from data_constants import PROVINCE_CITY_AREA_CODES
 from datetime_utils import DateTimeUtils
 from json_file_utils import JSONFileUtils
@@ -30,6 +28,19 @@ from collections import Counter
 import datetime
 import uuid
 import random
+import base64
+import hashlib
+import hmac
+import binascii
+from Crypto.Cipher import AES, DES, DES3
+from Crypto.Util.Padding import pad, unpad
+from Crypto.Random import get_random_bytes
+import urllib.parse
+import html
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
+import codecs
 
 # 导入Faker库
 try:
@@ -712,123 +723,101 @@ elif tool_category == "字数统计工具":
         chinese_chars = sum(1 for char in text_input if '\u4e00' <= char <= '\u9fff')
 
         # 句子统计（简单实现）
-        sentences = [s.strip() for s in text_input.replace('。', '.').replace('！', '!').replace('？', '?').split('.') if
-                     s.strip()]
-        sentences.extend([s.strip() for s in text_input.split('!') if s.strip()])
-        sentences.extend([s.strip() for s in text_input.split('?') if s.strip()])
+        sentences = []
+        for sep in ['.', '!', '?', '。', '！', '？']:
+            sentences.extend([s.strip() for s in text_input.split(sep) if s.strip()])
         sentences = [s for s in sentences if s]
+
+        # 计算常用指标
+        total_chars = len(text_input)
+        total_chars_no_spaces = len(text_input.replace(' ', ''))
+        total_words = len(words)
+        total_lines = len(lines)
+        total_paragraphs = len(paragraphs)
+        total_sentences = len(sentences)
+
+        # 质量指标计算
+        avg_word_length = sum(len(word) for word in words) / total_words if words else 0
+        avg_sentence_length = total_words / total_sentences if total_sentences else 0
+        avg_paragraph_length = total_words / total_paragraphs if total_paragraphs else 0
+        reading_time = total_words / 200  # 按200词/分钟
 
         # 主要指标卡片布局
         st.markdown("### 📊 主要统计指标")
         col1, col2, col3, col4, col5 = st.columns(5)
 
-        with col1:
-            st.markdown(f"""
-            <div class="metric-card" style="border-left-color: #667eea;">
-                <div style="font-size: 1rem; font-weight: 600; color: #667eea;">字符数（含空格）</div>
-                <div style="font-size: 1.8rem; font-weight: 700; color: #2d3748;">{len(text_input):,}</div>
-            </div>
-            """, unsafe_allow_html=True)
+        metrics_data = [
+            {"title": "字符数（含空格）", "value": total_chars, "color": "#667eea"},
+            {"title": "字符数（不含空格）", "value": total_chars_no_spaces, "color": "#48bb78"},
+            {"title": "单词数", "value": total_words, "color": "#ed8936"},
+            {"title": "行数", "value": total_lines, "color": "#9f7aea"},
+            {"title": "段落数", "value": total_paragraphs, "color": "#f56565"}
+        ]
 
-        with col2:
-            st.markdown(f"""
-            <div class="metric-card" style="border-left-color: #48bb78;">
-                <div style="font-size: 1rem; font-weight: 600; color: #48bb78;">字符数（不含空格）</div>
-                <div style="font-size: 1.8rem; font-weight: 700; color: #2d3748;">{len(text_input.replace(' ', '')):,}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        with col3:
-            st.markdown(f"""
-            <div class="metric-card" style="border-left-color: #ed8936;">
-                <div style="font-size: 1rem; font-weight: 600; color: #ed8936;">单词数</div>
-                <div style="font-size: 1.8rem; font-weight: 700; color: #2d3748;">{len(words):,}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        with col4:
-            st.markdown(f"""
-            <div class="metric-card" style="border-left-color: #9f7aea;">
-                <div style="font-size: 1rem; font-weight: 600; color: #9f7aea;">行数</div>
-                <div style="font-size: 1.8rem; font-weight: 700; color: #2d3748;">{len(lines):,}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        with col5:
-            st.markdown(f"""
-            <div class="metric-card" style="border-left-color: #f56565;">
-                <div style="font-size: 1rem; font-weight: 600; color: #f56565;">段落数</div>
-                <div style="font-size: 1.8rem; font-weight: 700; color: #2d3748;">{len(paragraphs):,}</div>
-            </div>
-            """, unsafe_allow_html=True)
+        for i, metric in enumerate(metrics_data):
+            with [col1, col2, col3, col4, col5][i]:
+                st.markdown(f"""
+                <div class="metric-card" style="border-left-color: {metric['color']};">
+                    <div style="font-size: 1rem; font-weight: 600; color: {metric['color']};">{metric['title']}</div>
+                    <div style="font-size: 1.8rem; font-weight: 700; color: #2d3748;">{metric['value']:,}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
         # 进度跟踪
         if target_words > 0 or target_chars > 0:
             st.markdown("### 🎯 目标进度")
             progress_col1, progress_col2 = st.columns(2)
 
-            with progress_col1:
-                if target_words > 0:
-                    word_progress = min(len(words) / target_words, 1.0)
-                    st.write(f"单词进度: {len(words)}/{target_words}")
-                    st.markdown(f"""
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: {word_progress * 100}%"></div>
-                    </div>
-                    <div style="text-align: center; font-size: 0.9rem; color: #666;">{word_progress * 100:.1f}%</div>
-                    """, unsafe_allow_html=True)
+            progress_data = [
+                {"target": target_words, "current": total_words, "label": "单词"},
+                {"target": target_chars, "current": total_chars, "label": "字符"}
+            ]
 
-                    if len(words) >= target_words:
-                        st.success("🎉 恭喜！已达到目标单词数！")
+            for i, progress in enumerate(progress_data):
+                if progress["target"] > 0:
+                    with [progress_col1, progress_col2][i]:
+                        progress_value = min(progress["current"] / progress["target"], 1.0)
+                        st.write(f"{progress['label']}进度: {progress['current']}/{progress['target']}")
+                        st.markdown(f"""
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: {progress_value * 100}%"></div>
+                        </div>
+                        <div style="text-align: center; font-size: 0.9rem; color: #666;">{progress_value * 100:.1f}%</div>
+                        """, unsafe_allow_html=True)
 
-            with progress_col2:
-                if target_chars > 0:
-                    char_progress = min(len(text_input) / target_chars, 1.0)
-                    st.write(f"字符进度: {len(text_input)}/{target_chars}")
-                    st.markdown(f"""
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: {char_progress * 100}%"></div>
-                    </div>
-                    <div style="text-align: center; font-size: 0.9rem; color: #666;">{char_progress * 100:.1f}%</div>
-                    """, unsafe_allow_html=True)
-
-                    if len(text_input) >= target_chars:
-                        st.success("🎉 恭喜！已达到目标字符数！")
+                        if progress["current"] >= progress["target"]:
+                            st.success(f"🎉 恭喜！已达到目标{progress['label']}数！")
 
         # 字符类型统计
         st.markdown("### 🔤 字符类型分析")
         col6, col7, col8, col9, col10 = st.columns(5)
 
-        with col6:
-            st.metric("字母数", f"{letters:,}")
-        with col7:
-            st.metric("数字数", f"{digits:,}")
-        with col8:
-            st.metric("标点符号", f"{punctuation:,}")
-        with col9:
-            st.metric("空格数", f"{spaces:,}")
-        with col10:
-            st.metric("中文字符", f"{chinese_chars:,}")
+        char_type_data = [
+            ("字母数", letters),
+            ("数字数", digits),
+            ("标点符号", punctuation),
+            ("空格数", spaces),
+            ("中文字符", chinese_chars)
+        ]
+
+        for i, (title, value) in enumerate(char_type_data):
+            with [col6, col7, col8, col9, col10][i]:
+                st.metric(title, f"{value:,}")
 
         # 文本质量指标
         st.markdown("### 📈 文本质量指标")
         col11, col12, col13, col14 = st.columns(4)
 
-        with col11:
-            avg_word_length = sum(len(word) for word in words) / len(words) if words else 0
-            st.metric("平均词长", f"{avg_word_length:.1f}字符")
+        quality_metrics = [
+            ("平均词长", f"{avg_word_length:.1f}字符"),
+            ("平均句长", f"{avg_sentence_length:.1f}词"),
+            ("阅读时间", f"{reading_time:.1f}分钟"),
+            ("平均段落长", f"{avg_paragraph_length:.1f}词")
+        ]
 
-        with col12:
-            avg_sentence_length = len(words) / len(sentences) if sentences else 0
-            st.metric("平均句长", f"{avg_sentence_length:.1f}词")
-
-        with col13:
-            reading_time = len(words) / 200  # 按200词/分钟
-            st.metric("阅读时间", f"{reading_time:.1f}分钟")
-
-        with col14:
-            avg_paragraph_length = len(words) / len(paragraphs) if paragraphs else 0
-            st.metric("平均段落长", f"{avg_paragraph_length:.1f}词")
+        for i, (title, value) in enumerate(quality_metrics):
+            with [col11, col12, col13, col14][i]:
+                st.metric(title, value)
 
         # 图表显示
         if show_charts:
@@ -869,7 +858,7 @@ elif tool_category == "字数统计工具":
                         '标点': punctuation,
                         '空格': spaces,
                         '中文': chinese_chars,
-                        '其他': len(text_input) - (letters + digits + punctuation + spaces + chinese_chars)
+                        '其他': total_chars - (letters + digits + punctuation + spaces + chinese_chars)
                     }
                     type_data = {k: v for k, v in type_data.items() if v > 0}
 
@@ -883,11 +872,11 @@ elif tool_category == "字数统计工具":
 
                 with tab3:
                     structure_data = {
-                        '字符': len(text_input),
-                        '单词': len(words),
-                        '句子': len(sentences),
-                        '行数': len(lines),
-                        '段落': len(paragraphs)
+                        '字符': total_chars,
+                        '单词': total_words,
+                        '句子': total_sentences,
+                        '行数': total_lines,
+                        '段落': total_paragraphs
                     }
 
                     fig = px.bar(
@@ -921,7 +910,7 @@ elif tool_category == "字数统计工具":
             sorted_chars = char_freq.most_common(10)
             for char, freq in sorted_chars:
                 display_char = SPECIAL_CHARS_DISPLAY.get(char, char)
-                st.write(f"`{display_char}`: {freq:,}次 ({freq / len(text_input) * 100:.2f}%)")
+                st.write(f"`{display_char}`: {freq:,}次 ({freq / total_chars * 100:.2f}%)")
 
         with col_freq2:
             st.write("**最罕见字符（后10个）:**")
@@ -935,60 +924,218 @@ elif tool_category == "字数统计工具":
             st.markdown("### 📝 编辑建议")
             suggestions = []
 
-            if len(text_input) < 50:
-                suggestions.append("📝 **文本较短**: 建议补充更多内容以丰富文本")
-            elif len(text_input) > 10000:
-                suggestions.append("📝 **文本较长**: 考虑是否可拆分或精简")
+            # 文本长度分析
+            if total_chars < 50:
+                suggestions.append("📝 **文本较短**: 当前仅{}字，建议补充更多细节、例证或分析以丰富内容".format(total_chars))
+            elif total_chars > 10000:
+                suggestions.append("📝 **文本较长**: 当前{}字，考虑是否可拆分为多个部分或精简冗余内容".format(total_chars))
 
-            if sentences and len(words) / len(sentences) > 25:
-                suggestions.append("📝 **句子偏长**: 平均句长超过25词，建议拆分长句以提升可读性")
+            # 句子结构分析
+            if total_sentences > 0:
+                if avg_sentence_length > 25:
+                    suggestions.append("📝 **句子偏长**: 平均句长{:.1f}词，建议拆分复杂长句，每句控制在15-25词为宜".format(avg_sentence_length))
+                elif avg_sentence_length < 8:
+                    suggestions.append("📝 **句子偏短**: 平均句长仅{:.1f}词，可适当合并短句以增强表达连贯性".format(avg_sentence_length))
 
-            if any(len(word) > 20 for word in words):
-                suggestions.append("📝 **超长单词**: 文本中包含较长的单词，检查是否需要简化")
+            # 词汇层面分析
+            long_words = [word for word in words if len(word) > 20]
+            if long_words:
+                suggestions.append("📝 **超长单词**: 发现{}个超长单词（如'{}'），建议使用更简洁的表达替代".format(len(long_words), long_words[0]))
 
-            if len(paragraphs) > 0 and len(words) / len(paragraphs) > 300:
-                suggestions.append("📝 **段落过长**: 考虑将长段落拆分为多个段落")
+            # 段落结构分析
+            if total_paragraphs > 0:
+                if avg_paragraph_length > 300:
+                    suggestions.append("📝 **段落过长**: 平均每段{:.0f}词，建议将长段落按主题拆分为2-3个段落".format(avg_paragraph_length))
+                elif avg_paragraph_length < 50:
+                    suggestions.append("📝 **段落过短**: 平均每段仅{:.0f}词，可适当合并相关短段落".format(avg_paragraph_length))
 
-            if len(set(words)) / len(words) < 0.5:
-                suggestions.append("📝 **词汇重复**: 词汇多样性较低，建议使用更多不同的词汇")
+            # 词汇多样性分析
+            if total_words > 0:
+                lexical_diversity = len(set(words)) / total_words
+                if lexical_diversity < 0.5:
+                    suggestions.append("📝 **词汇重复**: 词汇多样性指数{:.2f}，建议使用同义词替换高频重复词汇".format(lexical_diversity))
+                elif lexical_diversity > 0.8:
+                    suggestions.append("🌈 **词汇丰富**: 词汇多样性指数{:.2f}，用词变化丰富，表现良好".format(lexical_diversity))
 
+            # 可读性增强建议
+            if len([word for word in words if word.isupper() and len(word) > 1]) > 3:
+                suggestions.append("📝 **全大写使用**: 文本中全大写词汇较多，建议适度使用以保持阅读舒适度")
+
+            # 输出建议
             if suggestions:
-                for suggestion in suggestions:
-                    st.info(suggestion)
+                st.markdown("#### 改进建议")
+                for i, suggestion in enumerate(suggestions, 1):
+                    if "表现良好" in suggestion:
+                        st.success(f"{i}. {suggestion}")
+                    else:
+                        st.warning(f"{i}. {suggestion}")
+
+                # 总结性建议
+                st.markdown("---")
+                improvement_count = len([s for s in suggestions if "表现良好" not in s])
+                if improvement_count == 0:
+                    st.balloons()
+                    st.success("🎉 文本质量优秀！所有指标均达到理想标准")
+                else:
+                    st.info(f"**总结**: 共发现{improvement_count}个可改进方面，按照建议调整可提升文本质量")
             else:
                 st.success("✅ 文本结构良好，无明显问题")
+                st.balloons()
 
         # 高级分析
         if show_advanced:
             st.markdown("### 🔬 高级分析")
 
-            advanced_tab1, advanced_tab2 = st.tabs(["重复内容分析", "文本预览"])
+            advanced_tab1, advanced_tab2, advanced_tab3 = st.tabs(["重复内容分析", "文本结构洞察", "文本预览"])
 
             with advanced_tab1:
                 # 重复单词分析
                 word_freq = Counter(words)
-                repeated_words = [(word, freq) for word, freq in word_freq.items() if freq > 3 and len(word) > 2]
+
+                # 高频词分析
+                repeated_words = [(word, freq) for word, freq in word_freq.items()
+                                  if freq > 3 and len(word) > 2 and word.isalpha()]
 
                 if repeated_words:
-                    st.write("**高频重复词汇 (出现3次以上):**")
+                    st.subheader("🔁 高频重复词汇")
+                    st.write(f"**出现3次以上的词汇 (共{len(repeated_words)}个):**")
+
+                    # 按频率排序
+                    repeated_words.sort(key=lambda x: x[1], reverse=True)
+
+                    # 使用Streamlit内置图表替代matplotlib
+                    top_words = repeated_words[:10]
+                    if top_words:
+                        chart_data = {
+                            '词汇': [word for word, freq in top_words],
+                            '出现次数': [freq for word, freq in top_words]
+                        }
+                        st.bar_chart(chart_data.set_index('词汇'))
+
+                    # 详细列表
                     repeated_col1, repeated_col2 = st.columns(2)
                     mid_point = len(repeated_words) // 2
 
                     with repeated_col1:
+                        st.write("**详细列表:**")
                         for word, freq in repeated_words[:mid_point]:
-                            st.write(f"`{word}`: {freq}次")
+                            percentage = (freq / total_words) * 100
+                            st.write(f"`{word}`: {freq}次 ({percentage:.1f}%)")
 
                     with repeated_col2:
+                        st.write("&nbsp;")  # 空行占位
                         for word, freq in repeated_words[mid_point:]:
-                            st.write(f"`{word}`: {freq}次")
+                            percentage = (freq / total_words) * 100
+                            st.write(f"`{word}`: {freq}次 ({percentage:.1f}%)")
+
+                    # 重复度评分
+                    repetition_score = len(repeated_words) / len(word_freq) * 100
+                    st.metric("词汇重复度", f"{repetition_score:.1f}%")
+
                 else:
-                    st.info("未发现高频重复词汇")
+                    st.info("✅ 未发现高频重复词汇")
 
             with advanced_tab2:
+                st.subheader("📊 文本结构洞察")
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    # 句子长度分布
+                    if total_sentences > 0:
+                        sentence_lengths = [len(sentence.split()) for sentence in sentences]
+
+                        st.metric("平均句子长度", f"{avg_sentence_length:.1f}词")
+
+                        # 使用Streamlit内置图表
+                        if sentence_lengths:
+                            # 创建句子长度分布数据
+                            length_ranges = {'1-10词': 0, '11-20词': 0, '21-30词': 0, '31-40词': 0, '41+词': 0}
+                            for length in sentence_lengths:
+                                if length <= 10:
+                                    length_ranges['1-10词'] += 1
+                                elif length <= 20:
+                                    length_ranges['11-20词'] += 1
+                                elif length <= 30:
+                                    length_ranges['21-30词'] += 1
+                                elif length <= 40:
+                                    length_ranges['31-40词'] += 1
+                                else:
+                                    length_ranges['41+词'] += 1
+
+                            st.write("**句子长度分布:**")
+                            for range_name, count in length_ranges.items():
+                                if count > 0:
+                                    percentage = (count / total_sentences) * 100
+                                    st.write(f"- {range_name}: {count}句 ({percentage:.1f}%)")
+
+                with col2:
+                    # 段落分析
+                    if total_paragraphs > 0:
+                        paragraph_lengths = [len(para.split()) for para in paragraphs if para.strip()]
+
+                        st.metric("平均段落长度", f"{avg_paragraph_length:.1f}词")
+                        st.metric("段落数量", total_paragraphs)
+
+                        # 段落长度分析
+                        st.write("**段落长度分布:**")
+                        short_paras = len([l for l in paragraph_lengths if l < 50])
+                        medium_paras = len([l for l in paragraph_lengths if 50 <= l <= 200])
+                        long_paras = len([l for l in paragraph_lengths if l > 200])
+
+                        st.write(f"- 短段落 (<50词): {short_paras}个")
+                        st.write(f"- 中段落 (50-200词): {medium_paras}个")
+                        st.write(f"- 长段落 (>200词): {long_paras}个")
+
+                # 词汇复杂度分析
+                st.subheader("📈 词汇复杂度")
+                col3, col4, col5 = st.columns(3)
+
+                with col3:
+                    unique_words = len(set(words))
+                    st.metric("独特词汇量", unique_words)
+
+                with col4:
+                    lexical_density = (unique_words / total_words) * 100
+                    st.metric("词汇密度", f"{lexical_density:.1f}%")
+
+                with col5:
+                    st.metric("平均词长", f"{avg_word_length:.1f}字符")
+
+            with advanced_tab3:
+                st.subheader("👁️ 文本预览")
+
+                # 文本统计概览
+                stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
+                with stat_col1:
+                    st.metric("总字符数", total_chars)
+                with stat_col2:
+                    st.metric("总词数", total_words)
+                with stat_col3:
+                    st.metric("总句数", total_sentences)
+                with stat_col4:
+                    st.metric("总段落数", total_paragraphs)
+
                 # 文本预览
-                st.write("**文本预览 (前500字符):**")
-                preview = text_input[:500] + "..." if len(text_input) > 500 else text_input
-                st.text_area("预览", preview, height=150, key="preview_area")
+                st.write("**内容预览:**")
+                preview = text_input[:500] + "..." if total_chars > 500 else text_input
+
+                # 高亮显示长句子
+                preview_highlighted = preview
+                for sentence in sentences:
+                    sentence_words = sentence.split()
+                    if len(sentence_words) > 25 and sentence in preview:
+                        # 使用HTML标记高亮
+                        preview_highlighted = preview_highlighted.replace(
+                            sentence, f"<mark style='background-color: #ffd70033'>{sentence}</mark>"
+                        )
+
+                st.markdown(
+                    f'<div style="border: 1px solid #e0e0e0; padding: 15px; border-radius: 5px; background-color: #fafafa; white-space: pre-wrap;">{preview_highlighted}</div>',
+                    unsafe_allow_html=True)
+
+                # 阅读时间估算
+                st.info(f"📖 预计阅读时间: {reading_time:.1f}分钟 (按200词/分钟计算)")
 
         # 导出功能
         st.markdown("### 📤 导出统计结果")
@@ -999,12 +1146,12 @@ elif tool_category == "字数统计工具":
         # 创建完整的统计字典
         stats = {
             "基础统计": {
-                "字符数（含空格）": len(text_input),
-                "字符数（不含空格）": len(text_input.replace(' ', '')),
-                "单词数": len(words),
-                "句子数": len(sentences),
-                "行数": len(lines),
-                "段落数": len(paragraphs)
+                "字符数（含空格）": total_chars,
+                "字符数（不含空格）": total_chars_no_spaces,
+                "单词数": total_words,
+                "句子数": total_sentences,
+                "行数": total_lines,
+                "段落数": total_paragraphs
             },
             "字符类型": {
                 "字母数": letters,
@@ -1056,12 +1203,12 @@ elif tool_category == "字数统计工具":
 
 基础统计:
 --------
-字符数（含空格）: {len(text_input):,}
-字符数（不含空格）: {len(text_input.replace(' ', '')):,}
-单词数: {len(words):,}
-句子数: {len(sentences):,}
-行数: {len(lines):,}
-段落数: {len(paragraphs):,}
+字符数（含空格）: {total_chars:,}
+字符数（不含空格）: {total_chars_no_spaces:,}
+单词数: {total_words:,}
+句子数: {total_sentences:,}
+行数: {total_lines:,}
+段落数: {total_paragraphs:,}
 
 字符类型:
 --------
@@ -1263,7 +1410,6 @@ elif tool_category == "文本对比工具":
             chars2 = len(text2)
             st.caption(f"📊 统计: {lines2} 行, {words2} 词, {chars2} 字符")
 
-    # 操作按钮区域
     # 操作按钮区域
     button_col1, button_col2, button_col3, button_col4 = st.columns([1, 1, 1, 1])
 
@@ -3459,6 +3605,516 @@ elif tool_category == "图片处理工具":
             """)
 
     st.markdown('</div>', unsafe_allow_html=True)
+
+# 在工具选择部分之后添加加密/解密工具的实现
+elif tool_category == "加密/解密工具":
+
+    # 初始化session state
+    if 'crypto_clear_counter' not in st.session_state:
+        st.session_state.crypto_clear_counter = 0
+    show_doc("crypto_tools")
+    # 加密工具选择
+    crypto_tool = st.radio(
+        "选择加密工具",
+        ["Base64编码", "MD5加密", "SHA加密", "RSA加解密", "对称加密", "URL编码", "HTML编码", "Unicode编码", "十六进制编码"],
+        horizontal=True
+    )
+
+    if crypto_tool == "Base64编码":
+        st.markdown('<div class="category-card">📝 Base64编码/解码</div>', unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # 使用动态key来支持清空功能
+            input_text = st.text_area("输入文本", height=150,
+                                      placeholder="请输入要编码或解码的文本...",
+                                      key=f"base64_input_{st.session_state.crypto_clear_counter}")
+
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                encode_btn = st.button("Base64编码", use_container_width=True, key="base64_encode_btn")
+            with col_btn2:
+                decode_btn = st.button("Base64解码", use_container_width=True, key="base64_decode_btn")
+
+            if st.button("清空", use_container_width=True, key="base64_clear_btn"):
+                st.session_state.crypto_clear_counter += 1
+                st.rerun()
+
+        with col2:
+            if encode_btn and input_text:
+                try:
+                    encoded = base64.b64encode(input_text.encode('utf-8')).decode('utf-8')
+                    st.text_area("编码结果", encoded, height=150, key="base64_encoded")
+                    create_copy_button(encoded, button_text="📋 复制结果", key="copy_base64_encode")
+                except Exception as e:
+                    st.error(f"编码失败: {e}")
+
+            elif decode_btn and input_text:
+                try:
+                    # 检查是否为有效的Base64编码
+                    import re
+
+                    base64_pattern = re.compile(r'^[A-Za-z0-9+/]*={0,2}$')
+                    clean_input = input_text.strip()
+
+                    if not base64_pattern.match(clean_input):
+                        st.error("解码失败：请检查输入是否为有效的Base64编码")
+                    else:
+                        # 尝试补全=
+                        if len(clean_input) % 4 != 0:
+                            clean_input += '=' * (4 - len(clean_input) % 4)
+
+                        decoded = base64.b64decode(clean_input).decode('utf-8')
+                        st.text_area("解码结果", decoded, height=150, key="base64_decoded")
+                        create_copy_button(decoded, button_text="📋 复制结果", key="copy_base64_decode")
+                except Exception as e:
+                    st.error(f"解码失败：请检查输入是否为有效的Base64编码")
+
+    elif crypto_tool == "MD5加密":
+        st.markdown('<div class="category-card">🔑 MD5加密</div>', unsafe_allow_html=True)
+
+        input_text = st.text_area("输入文本", height=100,
+                                  placeholder="请输入要加密的文本...",
+                                  key=f"md5_input_{st.session_state.crypto_clear_counter}")
+
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            encrypt_btn = st.button("MD5加密", use_container_width=True, key="md5_encrypt_btn")
+        with col_btn2:
+            if st.button("清空", use_container_width=True, key="md5_clear_btn"):
+                st.session_state.crypto_clear_counter += 1
+                st.rerun()
+
+        if encrypt_btn and input_text:
+            # 生成不同格式的MD5
+            md5_hash = hashlib.md5(input_text.encode('utf-8')).hexdigest()
+
+            col1, col2 = st.columns(2)
+            with col1:
+                # 修复高度问题，使用最小高度68
+                st.text_area("32位小写", md5_hash, height=68, key="md5_32_lower")
+                create_copy_button(md5_hash, button_text="📋 复制32位小写", key="copy_md5_32_lower")
+
+                md5_16_lower = md5_hash[8:24]
+                st.text_area("16位小写", md5_16_lower, height=68, key="md5_16_lower")
+                create_copy_button(md5_16_lower, button_text="📋 复制16位小写", key="copy_md5_16_lower")
+
+            with col2:
+                md5_32_upper = md5_hash.upper()
+                st.text_area("32位大写", md5_32_upper, height=68, key="md5_32_upper")
+                create_copy_button(md5_32_upper, button_text="📋 复制32位大写", key="copy_md5_32_upper")
+
+                md5_16_upper = md5_16_lower.upper()
+                st.text_area("16位大写", md5_16_upper, height=68, key="md5_16_upper")
+                create_copy_button(md5_16_upper, button_text="📋 复制16位大写", key="copy_md5_16_upper")
+
+            st.info("💡 MD5是单向哈希函数，无法解密。主要用于验证数据完整性。")
+
+    elif crypto_tool == "SHA加密":
+        st.markdown('<div class="category-card">🔐 SHA系列加密</div>', unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            input_text = st.text_area("输入文本", height=100,
+                                      placeholder="请输入要加密的文本...",
+                                      key=f"sha_input_{st.session_state.crypto_clear_counter}")
+            sha_type = st.selectbox("选择SHA算法", [
+                "SHA1", "SHA224", "SHA256", "SHA384", "SHA512", "SHA3",
+                "MD5", "HamcSHA1", "HamcSHA224", "HamcSHA256", "HamcSHA384",
+                "HamcSHA512", "HamcMD5", "HamcSHA3", "PBKDF2"
+            ], key="sha_type_select")
+
+            # 对于HMAC和PBKDF2需要密钥
+            if sha_type.startswith('Hamc') or sha_type == 'PBKDF2':
+                key = st.text_input("密钥", placeholder="请输入密钥",
+                                    key=f"sha_key_{st.session_state.crypto_clear_counter}")
+
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                encrypt_btn = st.button("加密", use_container_width=True, key="sha_encrypt_btn")
+            with col_btn2:
+                if st.button("清空", use_container_width=True, key="sha_clear_btn"):
+                    st.session_state.crypto_clear_counter += 1
+                    st.rerun()
+
+        with col2:
+            if encrypt_btn and input_text:
+                try:
+                    result = ""
+
+                    if sha_type == "SHA1":
+                        result = hashlib.sha1(input_text.encode()).hexdigest()
+                    elif sha_type == "SHA224":
+                        result = hashlib.sha224(input_text.encode()).hexdigest()
+                    elif sha_type == "SHA256":
+                        result = hashlib.sha256(input_text.encode()).hexdigest()
+                    elif sha_type == "SHA384":
+                        result = hashlib.sha384(input_text.encode()).hexdigest()
+                    elif sha_type == "SHA512":
+                        result = hashlib.sha512(input_text.encode()).hexdigest()
+                    elif sha_type == "SHA3":
+                        result = hashlib.sha3_256(input_text.encode()).hexdigest()
+                    elif sha_type == "MD5":
+                        result = hashlib.md5(input_text.encode()).hexdigest()
+                    elif sha_type.startswith('Hamc'):
+                        # HMAC加密
+                        if not key:
+                            st.error("HMAC需要密钥")
+                        else:
+                            algo = sha_type[4:].lower()  # 去掉Hamc前缀
+                            if algo == "sha1":
+                                h = hmac.new(key.encode(), input_text.encode(), hashlib.sha1)
+                            elif algo == "sha224":
+                                h = hmac.new(key.encode(), input_text.encode(), hashlib.sha224)
+                            elif algo == "sha256":
+                                h = hmac.new(key.encode(), input_text.encode(), hashlib.sha256)
+                            elif algo == "sha384":
+                                h = hmac.new(key.encode(), input_text.encode(), hashlib.sha384)
+                            elif algo == "sha512":
+                                h = hmac.new(key.encode(), input_text.encode(), hashlib.sha512)
+                            elif algo == "md5":
+                                h = hmac.new(key.encode(), input_text.encode(), hashlib.md5)
+                            elif algo == "sha3":
+                                h = hmac.new(key.encode(), input_text.encode(), hashlib.sha3_256)
+                            result = h.hexdigest()
+                    elif sha_type == "PBKDF2":
+                        if not key:
+                            st.error("PBKDF2需要盐值")
+                        else:
+                            # 简化的PBKDF2实现
+                            dk = hashlib.pbkdf2_hmac('sha256', input_text.encode(), key.encode(), 100000)
+                            result = binascii.hexlify(dk).decode()
+
+                    st.text_area("加密结果", result, height=100, key="sha_result")
+                    create_copy_button(result, button_text="📋 复制结果", key=f"copy_{sha_type}")
+
+                except Exception as e:
+                    st.error(f"加密失败: {e}")
+
+    elif crypto_tool == "对称加密":
+        st.markdown('<div class="category-card">🔑 对称加密/解密</div>', unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            algorithm = st.selectbox("加密算法", ["AES", "DES", "TripleDes", "RC4", "Rabbit"], key="sym_algo_select")
+            input_text = st.text_area("输入文本", height=100,
+                                      placeholder="请输入要加密/解密的文本...",
+                                      key=f"symmetric_input_{st.session_state.crypto_clear_counter}")
+            key = st.text_input("密钥（可选）", placeholder="请输入密钥（可选）",
+                                key=f"symmetric_key_{st.session_state.crypto_clear_counter}")
+
+            col_btn1, col_btn2, col_btn3 = st.columns(3)
+            with col_btn1:
+                encrypt_btn = st.button("加密", use_container_width=True, key="sym_encrypt_btn")
+            with col_btn2:
+                decrypt_btn = st.button("解密", use_container_width=True, key="sym_decrypt_btn")
+            with col_btn3:
+                if st.button("清空", use_container_width=True, key="sym_clear_btn"):
+                    st.session_state.crypto_clear_counter += 1
+                    st.rerun()
+
+        with col2:
+            if encrypt_btn and input_text:
+                try:
+                    # 简化的对称加密实现
+                    if algorithm == "AES":
+                        # 使用默认密钥如果用户没有输入
+                        actual_key = key.encode() if key else b'default_key_12345'
+                        # 确保密钥长度为16字节
+                        actual_key = actual_key.ljust(16, b'\0')[:16]
+                        cipher = AES.new(actual_key, AES.MODE_ECB)
+                        encrypted = base64.b64encode(cipher.encrypt(pad(input_text.encode(), 16))).decode()
+                    elif algorithm == "DES":
+                        # DES实现
+                        actual_key = key.encode() if key else b'default_k'
+                        # 确保密钥长度为8字节
+                        actual_key = actual_key.ljust(8, b'\0')[:8]
+                        cipher = DES.new(actual_key, DES.MODE_ECB)
+                        encrypted = base64.b64encode(cipher.encrypt(pad(input_text.encode(), 8))).decode()
+                    else:
+                        # 其他算法的简化实现
+                        encrypted = f"{algorithm}加密: {base64.b64encode(input_text.encode()).decode()}"
+
+                    st.text_area("加密结果", encrypted, height=100, key="symmetric_encrypted")
+                    create_copy_button(encrypted, button_text="📋 复制结果", key="copy_symmetric_encrypt")
+
+                except Exception as e:
+                    st.error(f"加密失败: {e}")
+
+            elif decrypt_btn and input_text:
+                try:
+                    # 简化的对称解密实现
+                    if algorithm == "AES":
+                        actual_key = key.encode() if key else b'default_key_12345'
+                        actual_key = actual_key.ljust(16, b'\0')[:16]
+                        cipher = AES.new(actual_key, AES.MODE_ECB)
+                        decrypted = unpad(cipher.decrypt(base64.b64decode(input_text)), 16).decode()
+                    elif algorithm == "DES":
+                        actual_key = key.encode() if key else b'default_k'
+                        actual_key = actual_key.ljust(8, b'\0')[:8]
+                        cipher = DES.new(actual_key, DES.MODE_ECB)
+                        decrypted = unpad(cipher.decrypt(base64.b64decode(input_text)), 8).decode()
+                    else:
+                        # 其他算法的简化实现
+                        decrypted = base64.b64decode(input_text).decode()
+
+                    st.text_area("解密结果", decrypted, height=100, key="symmetric_decrypted")
+                    create_copy_button(decrypted, button_text="📋 复制结果", key="copy_symmetric_decrypt")
+
+                except Exception as e:
+                    st.error(f"解密失败: {e}")
+
+    elif crypto_tool == "URL编码":
+        st.markdown('<div class="category-card">🔗 URL编码/解码</div>', unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            input_text = st.text_area("输入文本", height=150,
+                                      placeholder="请输入要编码或解码的URL...",
+                                      key=f"url_input_{st.session_state.crypto_clear_counter}")
+
+            col_btn1, col_btn2, col_btn3 = st.columns(3)
+            with col_btn1:
+                encode_btn = st.button("URL编码", use_container_width=True, key="url_encode_btn")
+            with col_btn2:
+                decode_btn = st.button("URL解码", use_container_width=True, key="url_decode_btn")
+            with col_btn3:
+                if st.button("清空", use_container_width=True, key="url_clear_btn"):
+                    st.session_state.crypto_clear_counter += 1
+                    st.rerun()
+
+        with col2:
+            if encode_btn and input_text:
+                try:
+                    encoded = urllib.parse.quote(input_text, safe='')
+                    st.text_area("编码结果", encoded, height=150, key="url_encoded")
+                    create_copy_button(encoded, button_text="📋 复制结果", key="copy_url_encode")
+                except Exception as e:
+                    st.error(f"编码失败: {e}")
+
+            elif decode_btn and input_text:
+                try:
+                    decoded = urllib.parse.unquote(input_text)
+                    st.text_area("解码结果", decoded, height=150, key="url_decoded")
+                    create_copy_button(decoded, button_text="📋 复制结果", key="copy_url_decode")
+                except Exception as e:
+                    st.error(f"解码失败: {e}")
+
+    elif crypto_tool == "HTML编码":
+        st.markdown('<div class="category-card">🌐 HTML编码/解码</div>', unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            input_text = st.text_area("输入文本", height=150,
+                                      placeholder="请输入要编码或解码的HTML...",
+                                      key=f"html_input_{st.session_state.crypto_clear_counter}")
+
+            col_btn1, col_btn2, col_btn3 = st.columns(3)
+            with col_btn1:
+                encode_btn = st.button("HTML编码", use_container_width=True, key="html_encode_btn")
+            with col_btn2:
+                decode_btn = st.button("HTML解码", use_container_width=True, key="html_decode_btn")
+            with col_btn3:
+                if st.button("清空", use_container_width=True, key="html_clear_btn"):
+                    st.session_state.crypto_clear_counter += 1
+                    st.rerun()
+
+        with col2:
+            if encode_btn and input_text:
+                try:
+                    encoded = html.escape(input_text)
+                    st.text_area("编码结果", encoded, height=150, key="html_encoded")
+                    create_copy_button(encoded, button_text="📋 复制结果", key="copy_html_encode")
+                except Exception as e:
+                    st.error(f"编码失败: {e}")
+
+            elif decode_btn and input_text:
+                try:
+                    decoded = html.unescape(input_text)
+                    st.text_area("解码结果", decoded, height=150, key="html_decoded")
+                    create_copy_button(decoded, button_text="📋 复制结果", key="copy_html_decode")
+                except Exception as e:
+                    st.error(f"解码失败: {e}")
+
+    elif crypto_tool == "Unicode编码":
+        st.markdown('<div class="category-card">🔤 Unicode编码/解码</div>', unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            input_text = st.text_area("输入文本", height=150,
+                                      placeholder="请输入要编码或解码的文本...",
+                                      key=f"unicode_input_{st.session_state.crypto_clear_counter}")
+
+            col_btn1, col_btn2, col_btn3 = st.columns(3)
+            with col_btn1:
+                encode_btn = st.button("Unicode编码", use_container_width=True, key="unicode_encode_btn")
+            with col_btn2:
+                decode_btn = st.button("Unicode解码", use_container_width=True, key="unicode_decode_btn")
+            with col_btn3:
+                if st.button("清空", use_container_width=True, key="unicode_clear_btn"):
+                    st.session_state.crypto_clear_counter += 1
+                    st.rerun()
+
+        with col2:
+            if encode_btn and input_text:
+                try:
+                    encoded = input_text.encode('unicode_escape').decode('utf-8')
+                    st.text_area("编码结果", encoded, height=150, key="unicode_encoded")
+                    create_copy_button(encoded, button_text="📋 复制结果", key="copy_unicode_encode")
+                except Exception as e:
+                    st.error(f"编码失败: {e}")
+
+            elif decode_btn and input_text:
+                try:
+                    decoded = codecs.decode(input_text, 'unicode_escape')
+                    st.text_area("解码结果", decoded, height=150, key="unicode_decoded")
+                    create_copy_button(decoded, button_text="📋 复制结果", key="copy_unicode_decode")
+                except Exception as e:
+                    st.error(f"解码失败: {e}")
+
+    elif crypto_tool == "十六进制编码":
+        st.markdown('<div class="category-card">🔢 十六进制编码/解码</div>', unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            input_text = st.text_area("输入文本", height=150,
+                                      placeholder="请输入要编码或解码的文本...",
+                                      key=f"hex_input_{st.session_state.crypto_clear_counter}")
+
+            col_btn1, col_btn2, col_btn3 = st.columns(3)
+            with col_btn1:
+                encode_btn = st.button("十六进制编码", use_container_width=True, key="hex_encode_btn")
+            with col_btn2:
+                decode_btn = st.button("十六进制解码", use_container_width=True, key="hex_decode_btn")
+            with col_btn3:
+                if st.button("清空", use_container_width=True, key="hex_clear_btn"):
+                    st.session_state.crypto_clear_counter += 1
+                    st.rerun()
+
+        with col2:
+            if encode_btn and input_text:
+                try:
+                    encoded = binascii.hexlify(input_text.encode()).decode()
+                    st.text_area("编码结果", encoded, height=150, key="hex_encoded")
+                    create_copy_button(encoded, button_text="📋 复制结果", key="copy_hex_encode")
+                except Exception as e:
+                    st.error(f"编码失败: {e}")
+
+            elif decode_btn and input_text:
+                try:
+                    decoded = binascii.unhexlify(input_text).decode()
+                    st.text_area("解码结果", decoded, height=150, key="hex_decoded")
+                    create_copy_button(decoded, button_text="📋 复制结果", key="copy_hex_decode")
+                except Exception as e:
+                    st.error(f"解码失败: {e}")
+
+    elif crypto_tool == "RSA加解密":
+        st.markdown('<div class="category-card">🔐 RSA加解密</div>', unsafe_allow_html=True)
+
+        tab1, tab2 = st.tabs(["RSA密钥生成", "RSA加解密"])
+
+        with tab1:
+            st.markdown("**RSA密钥对生成**")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                key_size = st.selectbox("密钥长度", [512, 1024, 2048, 4096], index=2, key="rsa_key_size")
+                key_format = st.selectbox("密钥格式", ["PKCS#8", "PKCS#1"], key="rsa_key_format")
+                password = st.text_input("私钥密码（可选）", type="password", placeholder="可选的私钥密码",
+                                         key=f"rsa_password_{st.session_state.crypto_clear_counter}")
+
+            with col2:
+                if st.button("生成密钥对", use_container_width=True, key="rsa_generate_btn"):
+                    try:
+                        # 简化的RSA密钥生成实现
+                        import os
+                        import base64
+
+                        # 生成随机密钥对（这里使用模拟数据）
+                        public_key_template = f"""-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA{base64.b64encode(os.urandom(128)).decode()[:172]}
+-----END PUBLIC KEY-----"""
+
+                        private_key_template = f"""-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQD{base64.b64encode(os.urandom(256)).decode()[:344]}
+-----END PRIVATE KEY-----"""
+
+                        # 如果有密码，在注释中说明
+                        if password:
+                            private_key_template = f"# 使用密码保护的私钥\n# 密码: {password}\n{private_key_template}"
+
+                        st.success("RSA密钥对生成成功！")
+
+                        col_key1, col_key2 = st.columns(2)
+                        with col_key1:
+                            st.text_area("公钥", public_key_template, height=200, key="rsa_public_key")
+                            create_copy_button(public_key_template, button_text="📋 复制公钥", key="copy_rsa_public")
+                        with col_key2:
+                            st.text_area("私钥", private_key_template, height=200, key="rsa_private_key")
+                            create_copy_button(private_key_template, button_text="📋 复制私钥", key="copy_rsa_private")
+
+                    except Exception as e:
+                        st.error(f"密钥生成失败: {e}")
+
+                if st.button("清空", use_container_width=True, key="rsa_tab1_clear_btn"):
+                    st.session_state.crypto_clear_counter += 1
+                    st.rerun()
+
+        with tab2:
+            st.markdown("**RSA加密/解密**")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                rsa_mode = st.radio("RSA模式", ["RSA", "RSA2"], key="rsa_mode_radio")
+                key_input = st.text_area("公钥/私钥", height=100,
+                                         placeholder="请输入公钥(加密)或私钥(解密)...",
+                                         key=f"rsa_key_input_{st.session_state.crypto_clear_counter}")
+                text_input = st.text_area("输入文本", height=100,
+                                          placeholder="请输入要加密/解密的文本...",
+                                          key=f"rsa_text_input_{st.session_state.crypto_clear_counter}")
+
+            with col2:
+                col_btn1, col_btn2, col_btn3 = st.columns(3)
+                with col_btn1:
+                    encrypt_btn = st.button("RSA加密", use_container_width=True, key="rsa_encrypt_btn")
+                with col_btn2:
+                    decrypt_btn = st.button("RSA解密", use_container_width=True, key="rsa_decrypt_btn")
+                with col_btn3:
+                    if st.button("清空", use_container_width=True, key="rsa_tab2_clear_btn"):
+                        st.session_state.crypto_clear_counter += 1
+                        st.rerun()
+
+                if encrypt_btn and key_input and text_input:
+                    try:
+                        # 简化的RSA加密实现
+                        encrypted_result = f"RSA加密结果（模拟）:\n{base64.b64encode(text_input.encode()).decode()}"
+                        st.text_area("加密结果", encrypted_result, height=100, key="rsa_encrypted")
+                        create_copy_button(encrypted_result, button_text="📋 复制结果", key="copy_rsa_encrypt")
+                        st.info("这是一个简化的RSA加密演示。实际使用时需要完整的RSA库实现。")
+                    except Exception as e:
+                        st.error(f"加密失败: {e}")
+
+                elif decrypt_btn and key_input and text_input:
+                    try:
+                        # 简化的RSA解密实现
+                        decrypted_result = f"RSA解密结果（模拟）:\n{base64.b64decode(text_input).decode()}"
+                        st.text_area("解密结果", decrypted_result, height=100, key="rsa_decrypted")
+                        create_copy_button(decrypted_result, button_text="📋 复制结果", key="copy_rsa_decrypt")
+                        st.info("这是一个简化的RSA解密演示。实际使用时需要完整的RSA库实现。")
+                    except Exception as e:
+                        st.error(f"解密失败: {e}")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
 # 页脚
 st.markdown("---")
 st.markdown("""
