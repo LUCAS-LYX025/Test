@@ -45,12 +45,13 @@ import codecs
 import sys
 import os
 import pytesseract
-import cv2
+
 # 在导入部分添加
 
 try:
     import pytesseract
     from io import BytesIO
+    import cv2
     import xmind
     from xmind.core.markerref import MarkerId
     from PIL import Image
