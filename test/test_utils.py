@@ -42,6 +42,11 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 import codecs
 # 在导入部分添加
+current_dir = os.path.dirname(os.path.abspath(__file__))
+custom_tesseract_path = os.path.join(current_dir, "fonts", "tesseract")
+
+# 配置pytesseract使用自定义的tesseract路径
+pytesseract.pytesseract.tesseract_cmd = custom_tesseract_path
 try:
     import pytesseract
     from io import BytesIO
@@ -4210,7 +4215,6 @@ MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQD{base64.b64encode(os.urandom(
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 在工具选择部分之后添加测试用例生成器
 # 在工具选择部分之后添加测试用例生成器
 elif tool_category == "测试用例生成器":
     show_doc("test_case_generator")
