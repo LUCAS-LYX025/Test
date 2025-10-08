@@ -45,18 +45,18 @@ import codecs
 import sys
 import os
 import pytesseract
-
+# 在文件最开头先导入所有依赖
+import cv2
+import numpy as np
+from PIL import Image
+import pytesseract
+from io import BytesIO
+import xmind
+from xmind.core.markerref import MarkerId
+import openpyxl
 # 在导入部分添加
-
+# 然后再设置标志
 try:
-    import pytesseract
-    from io import BytesIO
-    import cv2
-    import xmind
-    from xmind.core.markerref import MarkerId
-    from PIL import Image
-    import numpy as np
-    import openpyxl
     OCR_AVAILABLE = True
 except ImportError:
     OCR_AVAILABLE = False
