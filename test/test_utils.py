@@ -15,6 +15,7 @@ import sys
 from PIL import Image
 import io
 import numpy as np
+import cv2
 
 print(sys.path)
 sys.path.append('/mount/src/test/test')
