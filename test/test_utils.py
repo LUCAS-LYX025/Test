@@ -41,12 +41,12 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 import codecs
-# 在导入部分添加
-current_dir = os.path.dirname(os.path.abspath(__file__))
-custom_tesseract_path = os.path.join(current_dir, "fonts", "tesseract")
+import sys
+import os
+import pytesseract
 
-# 配置pytesseract使用自定义的tesseract路径
-pytesseract.pytesseract.tesseract_cmd = custom_tesseract_path
+# 在导入部分添加
+
 try:
     import pytesseract
     from io import BytesIO
@@ -81,7 +81,11 @@ st.set_page_config(
 # 现代化CSS样式
 st.markdown(CSS_STYLES, unsafe_allow_html=True)
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+custom_tesseract_path = os.path.join(current_dir, "fonts", "tesseract")
 
+# 配置pytesseract使用自定义的tesseract路径
+pytesseract.pytesseract.tesseract_cmd = custom_tesseract_path
 # ================ 辅助函数 ================
 # 添加辅助函数
 def call_ali_testcase_api(requirement, api_key, id_prefix):
@@ -165,6 +169,7 @@ def call_ali_testcase_api(requirement, api_key, id_prefix):
     except Exception as e:
         raise Exception(f"API调用失败: {str(e)}")
 
+
 def generate_regex_from_examples(text, examples):
     """根据示例文本生成正则表达式"""
     if not text or not examples:
@@ -245,6 +250,7 @@ def escape_js_string(text):
     """安全转义 JavaScript 字符串"""
     return json.dumps(text)
 
+
 def create_copy_button(text, button_text="📋 复制到剪贴板", key=None):
     """创建一键复制按钮"""
     if key is None:
@@ -324,6 +330,7 @@ def create_copy_button(text, button_text="📋 复制到剪贴板", key=None):
     """
 
     components.html(button_html + copy_script, height=60)
+
 
 def display_generated_results(title, content, filename_prefix):
     """统一展示生成结果 + 复制 + 下载"""
@@ -4487,7 +4494,6 @@ elif tool_category == "测试用例生成器":
                 with col2:
                     if st.button(f"查看用例详情", key=f"view_history_{i}"):
                         st.info(f"此历史记录包含 {history['case_count']} 个测试用例")
-
 
 # 页脚
 st.markdown("---")
