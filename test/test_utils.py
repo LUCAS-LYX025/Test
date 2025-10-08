@@ -1,5 +1,16 @@
-import difflib
+# 先导入标准库
+import os
+import io
+import time
 
+# 再导入第三方库
+import cv2
+import numpy as np
+from PIL import Image
+import pytesseract
+
+# 最后导入自定义模块
+import difflib
 import pandas as pd
 import json
 import re
@@ -12,7 +23,6 @@ from doc_manager import show_doc, show_general_guidelines
 from ip_query_tool import IPQueryTool
 from data_generator import DataGenerator
 import sys
-from PIL import Image
 import io
 import numpy as np
 
@@ -44,16 +54,6 @@ from cryptography.hazmat.backends import default_backend
 import codecs
 import sys
 import os
-import pytesseract
-# 在文件最开头先导入所有依赖
-import cv2
-import numpy as np
-from PIL import Image
-import pytesseract
-from io import BytesIO
-import xmind
-from xmind.core.markerref import MarkerId
-import openpyxl
 # 在导入部分添加
 # 然后再设置标志
 try:
