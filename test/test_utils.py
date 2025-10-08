@@ -4219,15 +4219,102 @@ elif tool_category == "测试用例生成器":
 
     # API配置
     st.markdown("### 🔑 API配置")
+
+    # 大模型选择
     col1, col2 = st.columns(2)
     with col1:
-        api_key = st.text_input("阿里大模型API Key",
-                                value="",
-                                type="password",
-                                help="请确保使用有效的API密钥",
-                                key="api_key_input")
+        model_provider = st.selectbox(
+            "选择大模型",
+            ["阿里通义千问", "OpenAI GPT", "百度文心一言", "讯飞星火", "智谱ChatGLM"],
+            help="选择使用的大模型提供商",
+            key="model_provider_select"
+        )
     with col2:
         id_prefix = st.text_input("用例ID前缀", value="TC", help="例如: TC、TEST、CASE等", key="id_prefix_input")
+
+    # 根据选择的模型显示不同的API配置
+    if model_provider == "阿里通义千问":
+        st.markdown("#### 阿里通义千问配置")
+        api_key = st.text_input(
+            "API Key",
+            value="",
+            type="password",
+            help="请输入阿里通义千问的API密钥",
+            key="ali_api_key"
+        )
+        st.info("💡 阿里通义千问适合处理中文需求，在软件测试场景表现优秀")
+
+    elif model_provider == "OpenAI GPT":
+        st.markdown("#### OpenAI GPT配置")
+        col1, col2 = st.columns(2)
+        with col1:
+            api_key = st.text_input(
+                "API Key",
+                value="",
+                type="password",
+                help="请输入OpenAI的API密钥",
+                key="openai_api_key"
+            )
+        with col2:
+            model_version = st.selectbox(
+                "模型版本",
+                ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
+                help="选择GPT模型版本",
+                key="gpt_model_select"
+            )
+        st.info("💡 GPT系列模型在逻辑推理和结构化输出方面表现突出")
+
+    elif model_provider == "百度文心一言":
+        st.markdown("#### 百度文心一言配置")
+        col1, col2 = st.columns(2)
+        with col1:
+            api_key = st.text_input(
+                "API Key",
+                value="",
+                type="password",
+                help="请输入百度文心一言的API密钥",
+                key="baidu_api_key"
+            )
+        with col2:
+            secret_key = st.text_input(
+                "Secret Key",
+                value="",
+                type="password",
+                help="请输入百度文心一言的Secret Key",
+                key="baidu_secret_key"
+            )
+        st.info("💡 文心一言对中文理解深入，在业务场景描述方面表现良好")
+
+    elif model_provider == "讯飞星火":
+        st.markdown("#### 讯飞星火配置")
+        col1, col2 = st.columns(2)
+        with col1:
+            api_key = st.text_input(
+                "API Key",
+                value="",
+                type="password",
+                help="请输入讯飞星火的API密钥",
+                key="spark_api_key"
+            )
+        with col2:
+            app_id = st.text_input(
+                "App ID",
+                value="",
+                help="请输入讯飞星火的App ID",
+                key="spark_app_id"
+            )
+        st.info("💡 讯飞星火在技术文档和代码相关任务中表现优秀")
+
+    elif model_provider == "智谱ChatGLM":
+        st.markdown("#### 智谱ChatGLM配置")
+        api_key = st.text_input(
+            "API Key",
+            value="",
+            type="password",
+            help="请输入智谱AI的API密钥",
+            key="glm_api_key"
+        )
+        st.info("💡 ChatGLM在中文技术文档处理方面有独特优势")
 
     # 需求输入区域
     st.markdown("### 📝 需求输入")
@@ -4306,6 +4393,24 @@ elif tool_category == "测试用例生成器":
                                key=f"requirement_input_{st.session_state.testcase_input_counter}",
                                help="描述要测试的功能需求，越详细生成的测试用例越准确")
 
+    # 高级选项
+    with st.expander("🔧 高级选项", expanded=False):
+        col1, col2 = st.columns(2)
+        with col1:
+            case_style = st.selectbox(
+                "测试用例风格",
+                ["标准格式", "详细步骤", "简洁格式", "BDD格式(Given-When-Then)"],
+                help="选择测试用例的编写风格",
+                key="case_style_select"
+            )
+        with col2:
+            language = st.selectbox(
+                "输出语言",
+                ["中文", "英文", "中英双语"],
+                help="选择测试用例的输出语言",
+                key="language_select"
+            )
+
     # 操作按钮
     col1, col2, col3 = st.columns([1, 1, 1])
     with col1:
@@ -4332,14 +4437,39 @@ elif tool_category == "测试用例生成器":
                     st.code(complex_example)
 
     if generate_btn and requirement.strip():
-        if not api_key:
-            st.error("请输入阿里大模型API Key")
+        # 验证API配置
+        if model_provider == "阿里通义千问" and not api_key:
+            st.error("请输入阿里通义千问API Key")
+            st.stop()
+        elif model_provider == "OpenAI GPT" and not api_key:
+            st.error("请输入OpenAI API Key")
+            st.stop()
+        elif model_provider == "百度文心一言" and (not api_key or not secret_key):
+            st.error("请输入百度文心一言的API Key和Secret Key")
+            st.stop()
+        elif model_provider == "讯飞星火" and (not api_key or not app_id):
+            st.error("请输入讯飞星火的API Key和App ID")
+            st.stop()
+        elif model_provider == "智谱ChatGLM" and not api_key:
+            st.error("请输入智谱ChatGLM API Key")
             st.stop()
 
-        with st.spinner("🤖 AI正在分析需求并生成测试用例..."):
+        with st.spinner(f"🤖 {model_provider}正在分析需求并生成测试用例..."):
             try:
-                # 调用阿里大模型API
-                test_cases = call_ali_testcase_api(requirement, api_key, id_prefix)
+                # 根据选择的模型调用不同的API
+                if model_provider == "阿里通义千问":
+                    test_cases = call_ali_testcase_api(requirement, api_key, id_prefix, case_style, language)
+                elif model_provider == "OpenAI GPT":
+                    test_cases = call_openai_testcase_api(requirement, api_key, model_version, id_prefix, case_style,
+                                                          language)
+                elif model_provider == "百度文心一言":
+                    test_cases = call_baidu_testcase_api(requirement, api_key, secret_key, id_prefix, case_style,
+                                                         language)
+                elif model_provider == "讯飞星火":
+                    test_cases = call_spark_testcase_api(requirement, api_key, app_id, id_prefix, case_style, language)
+                elif model_provider == "智谱ChatGLM":
+                    test_cases = call_glm_testcase_api(requirement, api_key, id_prefix, case_style, language)
+
                 st.session_state.test_cases = test_cases
                 st.session_state.current_requirement = requirement
 
@@ -4348,11 +4478,12 @@ elif tool_category == "测试用例生成器":
                     "timestamp": time.strftime("%Y-%m-%d %H:%M"),
                     "requirement": requirement[:100] + "..." if len(requirement) > 100 else requirement,
                     "case_count": len(test_cases),
-                    "full_requirement": requirement  # 保存完整需求用于重新加载
+                    "model": model_provider,
+                    "full_requirement": requirement
                 }
                 st.session_state.requirement_history.insert(0, history_item)
 
-                st.success(f"✅ 成功生成 {len(test_cases)} 个测试用例！")
+                st.success(f"✅ 使用{model_provider}成功生成 {len(test_cases)} 个测试用例！")
 
             except Exception as e:
                 st.error(f"生成测试用例失败: {str(e)}")
@@ -4360,6 +4491,11 @@ elif tool_category == "测试用例生成器":
     # 显示生成的测试用例
     if st.session_state.test_cases:
         st.markdown("### 📊 生成的测试用例")
+
+        # 显示使用的模型信息
+        if st.session_state.requirement_history:
+            latest_history = st.session_state.requirement_history[0]
+            st.caption(f"使用模型: {latest_history.get('model', '未知')} | 生成时间: {latest_history['timestamp']}")
 
         # 统计信息
         total_cases = len(st.session_state.test_cases)
@@ -4383,35 +4519,58 @@ elif tool_category == "测试用例生成器":
         df = pd.DataFrame(st.session_state.test_cases)
         st.dataframe(df, use_container_width=True, height=400)
 
-        # 导出功能（只保留Excel导出）
+        # 导出功能
         st.markdown("### 📤 导出测试用例")
-        if st.button("📊 导出Excel文件", use_container_width=True, key="export_excel_btn"):
-            try:
-                timestamp = time.strftime("%Y%m%d_%H%M%S")
-                filename = f"测试用例_{timestamp}.xlsx"
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📊 导出Excel文件", use_container_width=True, key="export_excel_btn"):
+                try:
+                    timestamp = time.strftime("%Y%m%d_%H%M%S")
+                    filename = f"测试用例_{timestamp}.xlsx"
 
-                # 创建DataFrame并导出
-                df = pd.DataFrame(st.session_state.test_cases)
-                excel_buffer = io.BytesIO()
-                df.to_excel(excel_buffer, index=False, engine='openpyxl')
-                excel_buffer.seek(0)
+                    df = pd.DataFrame(st.session_state.test_cases)
+                    excel_buffer = io.BytesIO()
+                    df.to_excel(excel_buffer, index=False, engine='openpyxl')
+                    excel_buffer.seek(0)
 
-                st.download_button(
-                    label="📥 下载Excel文件",
-                    data=excel_buffer.getvalue(),
-                    file_name=filename,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
-                    key="download_excel_btn"
-                )
-            except Exception as e:
-                st.error(f"导出Excel失败: {str(e)}")
+                    st.download_button(
+                        label="📥 下载Excel文件",
+                        data=excel_buffer.getvalue(),
+                        file_name=filename,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                        key="download_excel_btn"
+                    )
+                except Exception as e:
+                    st.error(f"导出Excel失败: {str(e)}")
+
+        with col2:
+            if st.button("📝 导出Markdown", use_container_width=True, key="export_md_btn"):
+                try:
+                    timestamp = time.strftime("%Y%m%d_%H%M%S")
+                    filename = f"测试用例_{timestamp}.md"
+
+                    md_content = generate_markdown_testcases(st.session_state.test_cases,
+                                                             st.session_state.current_requirement)
+
+                    st.download_button(
+                        label="📥 下载Markdown文件",
+                        data=md_content,
+                        file_name=filename,
+                        mime="text/markdown",
+                        use_container_width=True,
+                        key="download_md_btn"
+                    )
+                except Exception as e:
+                    st.error(f"导出Markdown失败: {str(e)}")
 
     # 历史记录
     if st.session_state.requirement_history:
         st.markdown("### 📚 生成历史")
-        for i, history in enumerate(st.session_state.requirement_history[:5]):  # 显示最近5条
-            with st.expander(f"{history['timestamp']} - {history['requirement']} ({history['case_count']}个用例)"):
+        for i, history in enumerate(st.session_state.requirement_history[:5]):
+            model_info = f" ({history.get('model', '未知模型')})" if 'model' in history else ""
+            with st.expander(
+                    f"{history['timestamp']}{model_info} - {history['requirement']} ({history['case_count']}个用例)"):
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button(f"重新加载此需求", key=f"reload_history_{i}"):
@@ -4421,7 +4580,7 @@ elif tool_category == "测试用例生成器":
                         st.rerun()
                 with col2:
                     if st.button(f"查看用例详情", key=f"view_history_{i}"):
-                        st.info(f"此历史记录包含 {history['case_count']} 个测试用例")
+                        st.info(f"此历史记录包含 {history['case_count']} 个测试用例，使用模型: {history.get('model', '未知')}")
 
 # 页脚
 st.markdown("---")
