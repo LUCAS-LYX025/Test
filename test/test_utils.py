@@ -23,6 +23,8 @@ from data_constants import PROVINCES, COUNTRIES, CATEGORIES, PROVINCE_MAP, TO_SE
 from data_constants import LANGUAGE_TEMPLATES
 from data_constants import PREDEFINED_PATTERNS
 from data_constants import PROVINCE_CITY_AREA_CODES
+from data_constants import PLATFORM_MAPPING, STYLE_PREVIEWS, LANGUAGE_DESCRIPTIONS
+from data_constants import SIMPLE_EXAMPLE, MEDIUM_EXAMPLE, COMPLEX_EXAMPLE
 from datetime_utils import DateTimeUtils
 from json_file_utils import JSONFileUtils
 from collections import Counter
@@ -41,6 +43,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 import codecs
+from test_case_generator import TestCaseGenerator
 
 # 导入Faker库
 try:
@@ -62,317 +65,6 @@ st.set_page_config(
 
 # 现代化CSS样式
 st.markdown(CSS_STYLES, unsafe_allow_html=True)
-
-
-def call_ali_testcase_api(requirement, api_key, id_prefix, case_style="标准格式", language="中文"):
-    """调用阿里通义千问API生成测试用例"""
-    import requests
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-
-    # 根据风格设置提示词
-    style_instructions = {
-        "标准格式": "使用标准测试用例格式，包含清晰的步骤和预期结果",
-        "详细步骤": "提供非常详细的测试步骤，每个步骤都要具体明确",
-        "简洁格式": "使用简洁的格式，重点描述关键测试点",
-        "BDD格式(Given-When-Then)": "使用Given-When-Then格式编写测试场景"
-    }
-
-    # 根据语言设置输出要求
-    language_instruction = "所有内容请使用中文" if language == "中文" else \
-        "All content should be in English" if language == "英文" else \
-            "用例名称和描述使用中文，技术术语可保留英文"
-
-    prompt = f"""你是一位资深软件测试专家，请基于以下需求生成测试用例：
-
-需求描述：
-{requirement}
-
-请生成全面、精准的测试用例，{style_instructions[case_style]}。
-
-每个测试用例包含以下字段：
-- 用例ID：格式为{id_prefix}001, {id_prefix}002等
-- 用例名称：清晰描述测试场景
-- 前置条件：执行测试前需要满足的条件
-- 测试步骤：详细的测试操作步骤
-- 预期结果：期望的输出或行为
-- 优先级：高、中、低
-
-{language_instruction}
-
-请确保测试用例：
-1. 覆盖所有主要功能点
-2. 包含正常和异常场景
-3. 考虑边界条件和错误处理
-4. 优先级设置合理
-
-请以严格的JSON数组格式返回，确保JSON格式正确。"""
-
-    payload = {
-        "model": "qwen-turbo",
-        "input": {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-        },
-        "parameters": {
-            "result_format": "text"
-        }
-    }
-
-    try:
-        response = requests.post(
-            "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
-            headers=headers,
-            json=payload,
-            timeout=60
-        )
-        response.raise_for_status()
-        response_data = response.json()
-
-        if "output" in response_data and "text" in response_data["output"]:
-            result_text = response_data["output"]["text"]
-            return parse_testcases_from_text(result_text, id_prefix, language)
-        else:
-            raise Exception("API响应格式错误")
-
-    except Exception as e:
-        raise Exception(f"阿里通义千问API调用失败: {str(e)}")
-
-
-def call_openai_testcase_api(requirement, api_key, model_version, id_prefix, case_style="标准格式", language="中文"):
-    """调用OpenAI GPT API生成测试用例"""
-    import requests
-    import json
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-
-    style_instructions = {
-        "标准格式": "Use standard test case format with clear steps and expected results",
-        "详细步骤": "Provide very detailed test steps, each step should be specific and clear",
-        "简洁格式": "Use concise format, focus on key test points",
-        "BDD格式(Given-When-Then)": "Write test scenarios using Given-When-Then format"
-    }
-
-    language_instruction = "所有内容请使用中文" if language == "中文" else \
-        "All content should be in English" if language == "英文" else \
-            "用例名称和描述使用中文，技术术语可保留英文"
-
-    prompt = f"""你是一位资深软件测试专家，请基于以下需求生成测试用例：
-
-需求描述：
-{requirement}
-
-请生成全面、精准的测试用例，{style_instructions[case_style]}。
-
-每个测试用例包含以下字段：
-- 用例ID：格式为{id_prefix}001, {id_prefix}002等
-- 用例名称：清晰描述测试场景
-- 前置条件：执行测试前需要满足的条件
-- 测试步骤：详细的测试操作步骤
-- 预期结果：期望的输出或行为
-- 优先级：高、中、低
-
-{language_instruction}
-
-请确保测试用例：
-1. 覆盖所有主要功能点
-2. 包含正常和异常场景
-3. 考虑边界条件和错误处理
-4. 优先级设置合理
-
-请以严格的JSON数组格式返回。"""
-
-    payload = {
-        "model": model_version,
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        "temperature": 0.3,
-        "max_tokens": 4000
-    }
-
-    try:
-        response = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=60
-        )
-        response.raise_for_status()
-        response_data = response.json()
-
-        if "choices" in response_data and len(response_data["choices"]) > 0:
-            result_text = response_data["choices"][0]["message"]["content"]
-            return parse_testcases_from_text(result_text, id_prefix, language)
-        else:
-            raise Exception("API响应格式错误")
-
-    except Exception as e:
-        raise Exception(f"OpenAI API调用失败: {str(e)}")
-
-
-def call_baidu_testcase_api(requirement, api_key, secret_key, id_prefix, case_style="标准格式", language="中文"):
-    """调用百度文心一言API生成测试用例"""
-    import requests
-
-    # 获取access_token
-    def get_access_token(api_key, secret_key):
-        url = f"https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id={api_key}&client_secret={secret_key}"
-        response = requests.post(url)
-        return response.json().get("access_token")
-
-    access_token = get_access_token(api_key, secret_key)
-
-    headers = {
-        "Content-Type": "application/json"
-    }
-
-    style_instructions = {
-        "标准格式": "使用标准测试用例格式，包含清晰的步骤和预期结果",
-        "详细步骤": "提供非常详细的测试步骤，每个步骤都要具体明确",
-        "简洁格式": "使用简洁的格式，重点描述关键测试点",
-        "BDD格式(Given-When-Then)": "使用Given-When-Then格式编写测试场景"
-    }
-
-    language_instruction = "所有内容请使用中文" if language == "中文" else \
-        "All content should be in English" if language == "英文" else \
-            "用例名称和描述使用中文，技术术语可保留英文"
-
-    prompt = f"""你是一位资深软件测试专家，请基于以下需求生成测试用例：
-
-需求描述：
-{requirement}
-
-请生成全面、精准的测试用例，{style_instructions[case_style]}。
-
-每个测试用例包含以下字段：
-- 用例ID：格式为{id_prefix}001, {id_prefix}002等
-- 用例名称：清晰描述测试场景
-- 前置条件：执行测试前需要满足的条件
-- 测试步骤：详细的测试操作步骤
-- 预期结果：期望的输出或行为
-- 优先级：高、中、低
-
-{language_instruction}
-
-请确保测试用例：
-1. 覆盖所有主要功能点
-2. 包含正常和异常场景
-3. 考虑边界条件和错误处理
-4. 优先级设置合理
-
-请以严格的JSON数组格式返回。"""
-
-    payload = {
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        "temperature": 0.3,
-        "max_tokens": 4000
-    }
-
-    try:
-        response = requests.post(
-            f"https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/completions?access_token={access_token}",
-            headers=headers,
-            json=payload,
-            timeout=60
-        )
-        response.raise_for_status()
-        response_data = response.json()
-
-        if "result" in response_data:
-            result_text = response_data["result"]
-            return parse_testcases_from_text(result_text, id_prefix, language)
-        else:
-            raise Exception("API响应格式错误")
-
-    except Exception as e:
-        raise Exception(f"百度文心一言API调用失败: {str(e)}")
-
-
-def call_spark_testcase_api(requirement, api_key, app_id, id_prefix, case_style="标准格式", language="中文"):
-    """调用讯飞星火API生成测试用例"""
-    # 简化的实现，实际需要根据讯飞星火API文档调整
-    return call_openai_testcase_api(requirement, api_key, "gpt-3.5-turbo", id_prefix, case_style, language)
-
-
-def call_glm_testcase_api(requirement, api_key, id_prefix, case_style="标准格式", language="中文"):
-    """调用智谱ChatGLM API生成测试用例"""
-    # 简化的实现，实际需要根据智谱AI API文档调整
-    return call_openai_testcase_api(requirement, api_key, "gpt-3.5-turbo", id_prefix, case_style, language)
-
-
-def parse_testcases_from_text(result_text, id_prefix, language):
-    """从API返回的文本中解析测试用例"""
-    import json
-    import re
-
-    try:
-        # 尝试直接解析JSON
-        json_pattern = r'\[\s*\{.*\}\s*\]'
-        match = re.search(json_pattern, result_text, re.DOTALL)
-        if match:
-            json_str = match.group()
-            test_cases = json.loads(json_str)
-        else:
-            # 如果没有找到JSON数组，尝试其他格式
-            raise Exception("无法从响应中解析出JSON数据")
-
-        # 标准化测试用例格式
-        standardized_cases = []
-        for i, test_case in enumerate(test_cases):
-            standardized_case = {
-                "用例ID": test_case.get("用例ID", f"{id_prefix}{i + 1:03d}"),
-                "用例名称": test_case.get("用例名称", test_case.get("用例标题", "")),
-                "前置条件": test_case.get("前置条件", test_case.get("前提条件", "")),
-                "测试步骤": test_case.get("测试步骤", test_case.get("步骤", "")),
-                "预期结果": test_case.get("预期结果", test_case.get("期望结果", "")),
-                "优先级": test_case.get("优先级", test_case.get("优先级别", "中"))
-            }
-            standardized_cases.append(standardized_case)
-
-        return standardized_cases
-
-    except Exception as e:
-        raise Exception(f"解析测试用例失败: {str(e)}")
-
-
-def generate_markdown_testcases(test_cases, requirement):
-    """生成Markdown格式的测试用例文档"""
-    md_content = f"""# 测试用例文档
-
-## 需求描述
-{requirement}
-
-## 测试用例汇总
-
-| 用例ID | 用例名称 | 优先级 | 前置条件 | 测试步骤 | 预期结果 |
-|--------|----------|--------|----------|----------|----------|
-"""
-
-    for case in test_cases:
-        md_content += f"| {case['用例ID']} | {case['用例名称']} | {case['优先级']} | {case['前置条件']} | {case['测试步骤']} | {case['预期结果']} |\n"
-
-    md_content += f"\n## 统计信息\n- 总用例数: {len(test_cases)}\n- 生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}"
-
-    return md_content
 
 
 def generate_regex_from_examples(text, examples):
@@ -4761,6 +4453,8 @@ elif tool_category == "测试用例生成器":
         st.session_state.requirement_history = []
     if 'current_requirement' not in st.session_state:
         st.session_state.current_requirement = ""
+    if 'test_case_generator' not in st.session_state:
+        st.session_state.test_case_generator = TestCaseGenerator()
 
     # 使用计数器来管理输入框状态
     if 'testcase_input_counter' not in st.session_state:
@@ -4783,6 +4477,7 @@ elif tool_category == "测试用例生成器":
         id_prefix = st.text_input("用例ID前缀", value="TC", help="例如: TC、TEST、CASE等", key="id_prefix_input")
 
     # 根据选择的模型显示不同的API配置
+    api_config = {}
     if model_provider == "阿里通义千问":
         st.markdown("#### 阿里通义千问配置")
         api_key = st.text_input(
@@ -4792,6 +4487,7 @@ elif tool_category == "测试用例生成器":
             help="请输入阿里通义千问的API密钥",
             key="ali_api_key"
         )
+        api_config = {"api_key": api_key}
         st.info("💡 阿里通义千问适合处理中文需求，在软件测试场景表现优秀")
 
     elif model_provider == "OpenAI GPT":
@@ -4812,6 +4508,7 @@ elif tool_category == "测试用例生成器":
                 help="选择GPT模型版本",
                 key="gpt_model_select"
             )
+        api_config = {"api_key": api_key, "model_version": model_version}
         st.info("💡 GPT系列模型在逻辑推理和结构化输出方面表现突出")
 
     elif model_provider == "百度文心一言":
@@ -4833,6 +4530,7 @@ elif tool_category == "测试用例生成器":
                 help="请输入百度文心一言的Secret Key",
                 key="baidu_secret_key"
             )
+        api_config = {"api_key": api_key, "secret_key": secret_key}
         st.info("💡 文心一言对中文理解深入，在业务场景描述方面表现良好")
 
     elif model_provider == "讯飞星火":
@@ -4853,6 +4551,7 @@ elif tool_category == "测试用例生成器":
                 help="请输入讯飞星火的App ID",
                 key="spark_app_id"
             )
+        api_config = {"api_key": api_key, "app_id": app_id}
         st.info("💡 讯飞星火在技术文档和代码相关任务中表现优秀")
 
     elif model_provider == "智谱ChatGLM":
@@ -4864,54 +4563,13 @@ elif tool_category == "测试用例生成器":
             help="请输入智谱AI的API密钥",
             key="glm_api_key"
         )
+        api_config = {"api_key": api_key}
         st.info("💡 ChatGLM在中文技术文档处理方面有独特优势")
 
     # 需求输入区域
     st.markdown("### 📝 需求输入")
 
     # 定义示例数据
-    simple_example = """需求描述：测试一个简单的计算器加法功能
-
-功能要求：
-1. 用户可以输入两个数字
-2. 点击计算按钮进行加法运算
-3. 显示计算结果
-
-输入验证：
-- 只能输入数字
-- 不能为空"""
-
-    medium_example = """需求描述：测试用户登录功能
-
-功能要求：
-1. 用户可以通过用户名和密码登录系统
-2. 支持记住登录状态功能
-3. 提供忘记密码功能
-4. 登录失败时有适当的错误提示
-5. 成功登录后跳转到用户主页
-
-输入验证：
-- 用户名：必填，支持邮箱或手机号格式
-- 密码：必填，最少6个字符
-
-安全要求：
-- 连续5次登录失败后锁定账户30分钟"""
-
-    complex_example = """需求描述：测试电商平台的完整订单流程
-
-功能模块：
-1. 商品浏览和搜索
-2. 购物车管理
-3. 订单创建和支付
-4. 订单状态跟踪
-5. 售后和退款
-
-业务流程：
-- 用户浏览商品并加入购物车
-- 用户结算生成订单
-- 用户选择支付方式完成支付
-- 商家发货并更新物流信息
-- 用户确认收货或申请售后"""
 
     # 示例需求选择
     st.markdown("**快速选择示例需求：**")
@@ -4919,19 +4577,19 @@ elif tool_category == "测试用例生成器":
 
     with example_col1:
         if st.button("📱 简单功能示例", use_container_width=True, key="simple_example_btn"):
-            st.session_state.current_requirement_input = simple_example
+            st.session_state.current_requirement_input = SIMPLE_EXAMPLE
             st.session_state.testcase_input_counter += 1
             st.rerun()
 
     with example_col2:
         if st.button("🔐 中等功能示例", use_container_width=True, key="medium_example_btn"):
-            st.session_state.current_requirement_input = medium_example
+            st.session_state.current_requirement_input = MEDIUM_EXAMPLE
             st.session_state.testcase_input_counter += 1
             st.rerun()
 
     with example_col3:
         if st.button("🛒 复杂功能示例", use_container_width=True, key="complex_example_btn"):
-            st.session_state.current_requirement_input = complex_example
+            st.session_state.current_requirement_input = COMPLEX_EXAMPLE
             st.session_state.testcase_input_counter += 1
             st.rerun()
 
@@ -4944,25 +4602,45 @@ elif tool_category == "测试用例生成器":
                                help="描述要测试的功能需求，越详细生成的测试用例越准确")
 
     # 高级选项
-    with st.expander("🔧 高级选项", expanded=False):
+    with st.expander("🔧 高级选项", expanded=True):
         col1, col2 = st.columns(2)
         with col1:
+            # 获取支持的用例风格
+            case_styles = st.session_state.test_case_generator.get_case_styles()
             case_style = st.selectbox(
                 "测试用例风格",
-                ["标准格式", "详细步骤", "简洁格式", "BDD格式(Given-When-Then)"],
-                help="选择测试用例的编写风格",
+                options=list(case_styles.keys()),
+                index=0,
+                help="选择测试用例的编写风格，将直接影响生成的用例格式",
                 key="case_style_select"
             )
+            # 显示当前选择的风格描述
+            if case_style in case_styles:
+                style_desc = case_styles[case_style]
+                st.caption(f"💡 {style_desc}")
+
         with col2:
+            # 获取支持的语言
+            languages = st.session_state.test_case_generator.get_languages()
             language = st.selectbox(
                 "输出语言",
-                ["中文", "英文", "中英双语"],
+                options=languages,
+                index=0,
                 help="选择测试用例的输出语言",
                 key="language_select"
             )
+            # 显示语言说明
+            if language in LANGUAGE_DESCRIPTIONS:
+                st.caption(f"🌐 {LANGUAGE_DESCRIPTIONS[language]}")
+
+    # 在生成按钮后添加风格预览
+    if st.button("预览风格示例", key="preview_style_btn"):
+        if case_style in STYLE_PREVIEWS:
+            preview = STYLE_PREVIEWS[case_style]
+            st.info(f"**{case_style} 示例:** {preview['中文']} | {preview['英文']}")
 
     # 操作按钮
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2 = st.columns(2)  # 改为2列平铺
     with col1:
         if st.button("清空输入", use_container_width=True, key="clear_input_btn"):
             st.session_state.current_requirement_input = ""
@@ -4975,50 +4653,48 @@ elif tool_category == "测试用例生成器":
                                  disabled=not requirement.strip(),
                                  key="generate_testcases_btn")
 
-    with col3:
-        if st.button("查看示例详情", use_container_width=True, key="view_examples_btn"):
-            with st.expander("📋 示例需求详情", expanded=True):
-                tab1, tab2, tab3 = st.tabs(["简单功能", "中等功能", "复杂功能"])
-                with tab1:
-                    st.code(simple_example)
-                with tab2:
-                    st.code(medium_example)
-                with tab3:
-                    st.code(complex_example)
-
     if generate_btn and requirement.strip():
-        # 验证API配置
-        if model_provider == "阿里通义千问" and not api_key:
-            st.error("请输入阿里通义千问API Key")
+        platform = PLATFORM_MAPPING[model_provider]
+
+        # 验证必要的API参数
+        validation_errors = []
+        if platform == "ali" and not api_config.get("api_key"):
+            validation_errors.append("请输入阿里通义千问API Key")
+        elif platform == "openai" and not api_config.get("api_key"):
+            validation_errors.append("请输入OpenAI API Key")
+        elif platform == "baidu" and (not api_config.get("api_key") or not api_config.get("secret_key")):
+            validation_errors.append("请输入百度文心一言的API Key和Secret Key")
+        elif platform == "spark" and (not api_config.get("api_key") or not api_config.get("app_id")):
+            validation_errors.append("请输入讯飞星火的API Key和App ID")
+        elif platform == "glm" and not api_config.get("api_key"):
+            validation_errors.append("请输入智谱ChatGLM API Key")
+
+        if validation_errors:
+            for error in validation_errors:
+                st.error(error)
             st.stop()
-        elif model_provider == "OpenAI GPT" and not api_key:
-            st.error("请输入OpenAI API Key")
-            st.stop()
-        elif model_provider == "百度文心一言" and (not api_key or not secret_key):
-            st.error("请输入百度文心一言的API Key和Secret Key")
-            st.stop()
-        elif model_provider == "讯飞星火" and (not api_key or not app_id):
-            st.error("请输入讯飞星火的API Key和App ID")
-            st.stop()
-        elif model_provider == "智谱ChatGLM" and not api_key:
-            st.error("请输入智谱ChatGLM API Key")
-            st.stop()
+
+        # 显示当前使用的参数
+        st.write("🎯 生成参数:")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("风格", case_style)
+        with col2:
+            st.metric("语言", language)
+        with col3:
+            st.metric("平台", model_provider)
 
         with st.spinner(f"🤖 {model_provider}正在分析需求并生成测试用例..."):
             try:
-                # 根据选择的模型调用不同的API
-                if model_provider == "阿里通义千问":
-                    test_cases = call_ali_testcase_api(requirement, api_key, id_prefix, case_style, language)
-                elif model_provider == "OpenAI GPT":
-                    test_cases = call_openai_testcase_api(requirement, api_key, model_version, id_prefix, case_style,
-                                                          language)
-                elif model_provider == "百度文心一言":
-                    test_cases = call_baidu_testcase_api(requirement, api_key, secret_key, id_prefix, case_style,
-                                                         language)
-                elif model_provider == "讯飞星火":
-                    test_cases = call_spark_testcase_api(requirement, api_key, app_id, id_prefix, case_style, language)
-                elif model_provider == "智谱ChatGLM":
-                    test_cases = call_glm_testcase_api(requirement, api_key, id_prefix, case_style, language)
+                # 使用统一的生成器接口
+                test_cases = st.session_state.test_case_generator.generate_testcases(
+                    requirement=requirement,
+                    platform=platform,
+                    api_config=api_config,
+                    id_prefix=id_prefix,
+                    case_style=case_style,
+                    language=language
+                )
 
                 st.session_state.test_cases = test_cases
                 st.session_state.current_requirement = requirement
@@ -5029,11 +4705,16 @@ elif tool_category == "测试用例生成器":
                     "requirement": requirement[:100] + "..." if len(requirement) > 100 else requirement,
                     "case_count": len(test_cases),
                     "model": model_provider,
-                    "full_requirement": requirement
+                    "full_requirement": requirement,
+                    "platform": platform,
+                    "case_style": case_style,
+                    "language": language,
+                    "api_config": {k: "***" if "key" in k.lower() else v for k, v in api_config.items()}
                 }
                 st.session_state.requirement_history.insert(0, history_item)
 
                 st.success(f"✅ 使用{model_provider}成功生成 {len(test_cases)} 个测试用例！")
+                st.success(f"📝 用例风格: {case_style} | 输出语言: {language}")
 
             except Exception as e:
                 st.error(f"生成测试用例失败: {str(e)}")
@@ -5042,10 +4723,13 @@ elif tool_category == "测试用例生成器":
     if st.session_state.test_cases:
         st.markdown("### 📊 生成的测试用例")
 
-        # 显示使用的模型信息
+        # 显示使用的模型和参数信息
         if st.session_state.requirement_history:
             latest_history = st.session_state.requirement_history[0]
-            st.caption(f"使用模型: {latest_history.get('model', '未知')} | 生成时间: {latest_history['timestamp']}")
+            st.caption(f"使用模型: {latest_history.get('model', '未知')} | "
+                       f"风格: {latest_history.get('case_style', '标准格式')} | "
+                       f"语言: {latest_history.get('language', '中文')} | "
+                       f"生成时间: {latest_history['timestamp']}")
 
         # 统计信息
         total_cases = len(st.session_state.test_cases)
@@ -5100,8 +4784,10 @@ elif tool_category == "测试用例生成器":
                     timestamp = time.strftime("%Y%m%d_%H%M%S")
                     filename = f"测试用例_{timestamp}.md"
 
-                    md_content = generate_markdown_testcases(st.session_state.test_cases,
-                                                             st.session_state.current_requirement)
+                    md_content = st.session_state.test_case_generator.generate_markdown_report(
+                        st.session_state.test_cases,
+                        st.session_state.current_requirement
+                    )
 
                     st.download_button(
                         label="📥 下载Markdown文件",
@@ -5119,8 +4805,9 @@ elif tool_category == "测试用例生成器":
         st.markdown("### 📚 生成历史")
         for i, history in enumerate(st.session_state.requirement_history[:5]):
             model_info = f" ({history.get('model', '未知模型')})" if 'model' in history else ""
+            style_info = f" [{history.get('case_style', '标准')}]" if 'case_style' in history else ""
             with st.expander(
-                    f"{history['timestamp']}{model_info} - {history['requirement']} ({history['case_count']}个用例)"):
+                    f"{history['timestamp']}{model_info}{style_info} - {history['requirement']} ({history['case_count']}个用例)"):
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button(f"重新加载此需求", key=f"reload_history_{i}"):
@@ -5130,14 +4817,9 @@ elif tool_category == "测试用例生成器":
                         st.rerun()
                 with col2:
                     if st.button(f"查看用例详情", key=f"view_history_{i}"):
-                        st.info(f"此历史记录包含 {history['case_count']} 个测试用例，使用模型: {history.get('model', '未知')}")
-
-# 页脚
-st.markdown("---")
-st.markdown("""
-<div style="text-align: center; color: #718096; padding: 2rem 0;">
-    <p>🔧 测试工程师常用工具集 | 为高效测试而生</p>
-</div>
-""", unsafe_allow_html=True)
+                        st.info(f"此历史记录包含 {history['case_count']} 个测试用例，"
+                                f"使用模型: {history.get('model', '未知')}, "
+                                f"风格: {history.get('case_style', '标准格式')}, "
+                                f"语言: {history.get('language', '中文')}")
 
 show_general_guidelines()

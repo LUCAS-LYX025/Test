@@ -824,6 +824,14 @@ class ToolDocumentationManager:
         """
         显示通用使用说明和注意事项
         """
+        # 页脚
+        st.markdown("---")
+        st.markdown("""
+        <div style="text-align: center; color: #718096; padding: 2rem 0;">
+            <p>🔧 测试工程师常用工具集 | 为高效测试而生</p>
+        </div>
+        """, unsafe_allow_html=True)
+
         st.markdown("---")
         st.markdown("### 🎯 通用使用说明")
 

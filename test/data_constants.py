@@ -1002,8 +1002,85 @@ JSON_CONTENT = '''{
     },
     "expensive": 10
 }'''
+
+PLATFORM_MAPPING = {
+    "阿里通义千问": "ali",
+    "OpenAI GPT": "openai",
+    "百度文心一言": "baidu",
+    "讯飞星火": "spark",
+    "智谱ChatGLM": "glm"
+}
+
+STYLE_PREVIEWS = {
+    "标准格式": {
+        "中文": "用例步骤清晰明确，预期结果具体",
+        "英文": "Clear test steps with specific expected results"
+    },
+    "详细步骤": {
+        "中文": "包含详细的操作步骤、输入数据和验证点",
+        "英文": "Include detailed operation steps, input data and verification points"
+    },
+    "简洁格式": {
+        "中文": "重点突出，省略非关键步骤",
+        "英文": "Focus on key points, omit non-critical steps"
+    },
+    "BDD格式(Given-When-Then)": {
+        "中文": "Given-前提条件, When-执行操作, Then-预期结果",
+        "英文": "Given-preconditions, When-actions, Then-expected results"
+    }
+}
+
+LANGUAGE_DESCRIPTIONS = {
+    "中文": "所有内容使用中文",
+    "英文": "所有内容使用英文"
+}
+
+SIMPLE_EXAMPLE = """需求描述：测试一个简单的计算器加法功能
+
+功能要求：
+1. 用户可以输入两个数字
+2. 点击计算按钮进行加法运算
+3. 显示计算结果
+
+输入验证：
+- 只能输入数字
+- 不能为空"""
+
+MEDIUM_EXAMPLE = """需求描述：测试用户登录功能
+
+功能要求：
+1. 用户可以通过用户名和密码登录系统
+2. 支持记住登录状态功能
+3. 提供忘记密码功能
+4. 登录失败时有适当的错误提示
+5. 成功登录后跳转到用户主页
+
+输入验证：
+- 用户名：必填，支持邮箱或手机号格式
+- 密码：必填，最少6个字符
+
+安全要求：
+- 连续5次登录失败后锁定账户30分钟"""
+
+COMPLEX_EXAMPLE = """需求描述：测试电商平台的完整订单流程
+
+功能模块：
+1. 商品浏览和搜索
+2. 购物车管理
+3. 订单创建和支付
+4. 订单状态跟踪
+5. 售后和退款
+
+业务流程：
+- 用户浏览商品并加入购物车
+- 用户结算生成订单
+- 用户选择支付方式完成支付
+- 商家发货并更新物流信息
+- 用户确认收货或申请售后"""
+
 # 导出所有常量
 __all__ = ['PROVINCES', 'COUNTRIES', 'CATEGORIES', 'PROVINCE_MAP', 'TO_SECONDS', 'RANDOM_STRING_TYPES',
            'PASSWORD_OPTIONS',
            'DOMAINS_PRESET', 'PHONE_TYPES', 'GENDERS', 'TOOL_CATEGORIES', 'CSS_STYLES', 'HEADLINE_STYLES',
-           'PROVINCE_CITY_AREA_CODES', 'PREDEFINED_PATTERNS', 'LANGUAGE_TEMPLATES', 'JSON_CONTENT']
+           'PROVINCE_CITY_AREA_CODES', 'PREDEFINED_PATTERNS', 'LANGUAGE_TEMPLATES', 'JSON_CONTENT', 'PLATFORM_MAPPING',
+           'STYLE_PREVIEWS', 'LANGUAGE_DESCRIPTIONS']
