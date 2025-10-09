@@ -593,7 +593,7 @@ TOOL_CATEGORIES = {
     },
     "JSON处理工具": {
         "icon": "📝",
-        "description": "JSON格式验证、差异比较、格式化",
+        "description": "JSON格式验证、差异比较、数据解析",
         "color": "#f56565"
     },
     "日志分析工具": {
@@ -603,7 +603,7 @@ TOOL_CATEGORIES = {
     },
     "时间处理工具": {
         "icon": "⏰",
-        "description": "时间戳转换、日期计算、时区处理",
+        "description": "时间转换、日期计算、时间分析",
         "color": "#38b2ac"
     },
     "IP/域名查询工具": {
@@ -613,7 +613,7 @@ TOOL_CATEGORIES = {
     },
     "图片处理工具": {
         "icon": "🖼️",
-        "description": "图片格式转换、压缩、尺寸调整",
+        "description": "格式转换、压缩、尺寸调整，加水印",
         "color": "#ed64a6"
     },
     "加密/解密工具": {
