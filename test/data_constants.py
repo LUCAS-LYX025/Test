@@ -623,7 +623,7 @@ TOOL_CATEGORIES = {
     },
     "测试用例生成器": {
         "icon": "🧪",
-        "description": "AI生成测试用例，支持图片OCR",
+        "description": "AI生成测试用例，支持导出用例",
         "color": "#ed64a6"
     }
 }

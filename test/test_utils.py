@@ -1,5 +1,4 @@
 from PIL import Image
-import pytesseract
 
 # 最后导入自定义模块
 import difflib
@@ -42,7 +41,6 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 import codecs
-import os
 
 # 导入Faker库
 try:
@@ -64,6 +62,7 @@ st.set_page_config(
 
 # 现代化CSS样式
 st.markdown(CSS_STYLES, unsafe_allow_html=True)
+
 
 def call_ali_testcase_api(requirement, api_key, id_prefix, case_style="标准格式", language="中文"):
     """调用阿里通义千问API生成测试用例"""
@@ -374,8 +373,6 @@ def generate_markdown_testcases(test_cases, requirement):
     md_content += f"\n## 统计信息\n- 总用例数: {len(test_cases)}\n- 生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}"
 
     return md_content
-
-
 
 
 def generate_regex_from_examples(text, examples):
@@ -3030,13 +3027,15 @@ elif tool_category == "日志分析工具":
 
     st.markdown('</div>', unsafe_allow_html=True)
 
+# 在Streamlit界面中添加新的时间处理功能
 elif tool_category == "时间处理工具":
     show_doc("time_processor")
 
     dt_utils = DateTimeUtils
     time_tool = st.radio(
         "选择时间处理工具",
-        ["时间戳转换", "时间换算工具", "日期计算器"],
+        ["时间戳转换", "时间换算工具", "日期计算器", "日期信息查询", "时间间隔格式化",
+         "星座生肖查询", "测试数据生成", "SLA计算器", "性能测试工具", "定时任务分析"],
         horizontal=True
     )
 
@@ -3152,6 +3151,327 @@ elif tool_category == "时间处理工具":
                     st.success(f"间隔天数: {delta.days} 天")
                     st.info(f"工作日: {business_days} 天")
                     st.info(f"周末天数: {weekend_days} 天")
+
+    elif time_tool == "日期信息查询":
+        st.markdown('<div class="category-card">📊 日期信息查询</div>', unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            query_date = st.date_input("选择查询日期", datetime.date.today())
+
+            if st.button("查询日期信息", use_container_width=True):
+                with st.spinner("正在查询..."):
+                    # 基本信息
+                    st.subheader("📅 基本信息")
+                    col_info1, col_info2 = st.columns(2)
+                    with col_info1:
+                        st.metric("星期", ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"][query_date.weekday()])
+                        st.metric("季度", f"第{dt_utils.get_quarter(query_date)}季度")
+                        st.metric("是否周末", "是" if dt_utils.is_weekend(query_date) else "否")
+                    with col_info2:
+                        st.metric("周数", f"第{dt_utils.get_week_number(query_date)}周")
+                        st.metric("是否闰年", "是" if dt_utils.is_leap_year(query_date.year) else "否")
+                        st.metric("当月天数", dt_utils.days_in_month(query_date.year, query_date.month))
+
+                    # 月份范围
+                    st.subheader("📈 月份范围")
+                    first_day = dt_utils.get_first_day_of_month(query_date)
+                    last_day = dt_utils.get_last_day_of_month(query_date)
+                    col_range1, col_range2 = st.columns(2)
+                    with col_range1:
+                        st.metric("月初", first_day.strftime("%Y-%m-%d"))
+                    with col_range2:
+                        st.metric("月末", last_day.strftime("%Y-%m-%d"))
+
+                    # 周范围
+                    week_start, week_end = dt_utils.get_week_range(query_date)
+                    st.metric("本周范围", f"{week_start.strftime('%Y-%m-%d')} 到 {week_end.strftime('%Y-%m-%d')}")
+
+    elif time_tool == "时间间隔格式化":
+        st.markdown('<div class="category-card">⏱️ 时间间隔格式化</div>', unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            seconds_input = st.number_input("输入秒数", min_value=0, value=3661, step=1)
+
+            if st.button("格式化时间间隔", use_container_width=True):
+                formatted = dt_utils.format_duration(seconds_input)
+                st.success(f"格式化结果: {formatted}")
+
+        with col2:
+            st.markdown("**示例:**")
+            st.write("3661 秒 → 1小时1分钟1秒")
+            st.write("86400 秒 → 1天")
+            st.write("90061 秒 → 1天1小时1分钟1秒")
+
+    elif time_tool == "星座生肖查询":
+        st.markdown('<div class="category-card">✨ 星座生肖查询</div>', unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            birth_date = st.date_input("选择出生日期", datetime.date(2000, 1, 1))
+
+            if st.button("查询星座生肖", use_container_width=True):
+                zodiac = dt_utils.get_chinese_zodiac(birth_date.year)
+                constellation = dt_utils.get_constellation(birth_date.month, birth_date.day)
+                age = dt_utils.get_age(birth_date)
+
+                st.success("查询结果:")
+                col_result1, col_result2, col_result3 = st.columns(3)
+                with col_result1:
+                    st.metric("生肖", zodiac)
+                with col_result2:
+                    st.metric("星座", constellation)
+                with col_result3:
+                    st.metric("年龄", age)
+
+                st.info(f"出生日期: {birth_date.strftime('%Y年%m月%d日')}")
+
+        with col2:
+            st.markdown("**星座日期范围:**")
+            constellations_info = [
+                "♑ 摩羯座: 12月22日-1月19日",
+                "♒ 水瓶座: 1月20日-2月18日",
+                "♓ 双鱼座: 2月19日-3月20日",
+                "♈ 白羊座: 3月21日-4月19日",
+                "♉ 金牛座: 4月20日-5月20日",
+                "♊ 双子座: 5月21日-6月21日",
+                "♋ 巨蟹座: 6月22日-7月22日",
+                "♌ 狮子座: 7月23日-8月22日",
+                "♍ 处女座: 8月23日-9月22日",
+                "♎ 天秤座: 9月23日-10月23日",
+                "♏ 天蝎座: 10月24日-11月22日",
+                "♐ 射手座: 11月23日-12月21日"
+            ]
+            for info in constellations_info:
+                st.write(info)
+
+    elif time_tool == "测试数据生成":
+        st.markdown('<div class="category-card">🧪 测试数据生成</div>', unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            start_date = st.date_input("开始日期", datetime.date.today() - timedelta(days=30))
+            end_date = st.date_input("结束日期", datetime.date.today())
+            frequency = st.selectbox("生成频率", ["daily", "weekly", "monthly", "hourly"])
+            count = st.number_input("生成数量（可选）", min_value=1, value=10)
+
+            if st.button("生成测试日期", use_container_width=True):
+                dates = dt_utils.generate_test_dates(start_date, end_date, frequency, count)
+                st.success(f"生成了 {len(dates)} 个测试日期")
+
+                date_strings = [date.strftime("%Y-%m-%d") for date in dates]
+                st.text_area("生成的日期序列", "\n".join(date_strings), height=200)
+
+                # 提供下载
+                csv_data = "日期\n" + "\n".join(date_strings)
+                st.download_button(
+                    "📥 下载CSV",
+                    csv_data,
+                    file_name="test_dates.csv",
+                    mime="text/csv"
+                )
+
+    elif time_tool == "SLA计算器":
+        st.markdown('<div class="category-card">⏱️ SLA计算器</div>', unsafe_allow_html=True)
+
+        tab1, tab2 = st.tabs(["SLA到期时间", "工作时间计算"])
+
+        with tab1:
+            col1, col2 = st.columns(2)
+            with col1:
+                # 修正：使用 date_input 和 time_input 组合
+                start_date = st.date_input("开始日期", datetime.date.today())
+                start_time = st.time_input("开始时间", datetime.time(9, 0))
+                start_dt = datetime.datetime.combine(start_date, start_time)
+
+                sla_hours = st.number_input("SLA小时数", min_value=1, value=8)
+                work_start = st.number_input("工作开始时间", min_value=0, max_value=23, value=9)
+                work_end = st.number_input("工作结束时间", min_value=1, max_value=24, value=17)
+
+            with col2:
+                st.write(f"**开始时间:** {start_dt.strftime('%Y-%m-%d %H:%M')}")
+
+                if st.button("计算SLA到期时间", use_container_width=True):
+                    due_date = dt_utils.calculate_sla_due_date(start_dt, sla_hours, work_start, work_end)
+                    st.success(f"SLA到期时间: {due_date.strftime('%Y-%m-%d %H:%M:%S')}")
+
+                    # 显示详细信息
+                    st.info(f"""
+                    **计算详情:**
+                    - 开始时间: {start_dt.strftime('%Y-%m-%d %H:%M')}
+                    - SLA要求: {sla_hours} 工作时间
+                    - 工作时间: {work_start}:00 - {work_end}:00
+                    - 到期时间: {due_date.strftime('%Y-%m-%d %H:%M')}
+                    """)
+
+        with tab2:
+            col1, col2 = st.columns(2)
+            with col1:
+                # 修正：使用 date_input 和 time_input 组合
+                start_date = st.date_input("开始日期", datetime.date.today() - timedelta(days=2), key="start_date_work")
+                start_time = st.time_input("开始时间", datetime.time(9, 0), key="start_time_work")
+                start_dt = datetime.datetime.combine(start_date, start_time)
+
+                end_date = st.date_input("结束日期", datetime.date.today(), key="end_date_work")
+                end_time = st.time_input("结束时间", datetime.time(17, 0), key="end_time_work")
+                end_dt = datetime.datetime.combine(end_date, end_time)
+
+                work_start = st.number_input("工作开始", min_value=0, max_value=23, value=9, key="work_start2")
+                work_end = st.number_input("工作结束", min_value=1, max_value=24, value=17, key="work_end2")
+
+            with col2:
+                st.write(f"**时间范围:** {start_dt.strftime('%Y-%m-%d %H:%M')} 到 {end_dt.strftime('%Y-%m-%d %H:%M')}")
+
+                if st.button("计算工作时间", use_container_width=True):
+                    if start_dt >= end_dt:
+                        st.error("开始时间必须早于结束时间")
+                    else:
+                        work_hours = dt_utils.get_working_hours(start_dt, end_dt, work_start, work_end)
+                        total_hours = (end_dt - start_dt).total_seconds() / 3600
+
+                        st.success(f"实际工作时间: {work_hours:.2f} 小时")
+                        st.info(f"总时间: {total_hours:.2f} 小时")
+                        st.info(f"非工作时间: {total_hours - work_hours:.2f} 小时")
+
+                        # 显示工作日统计
+                        current = start_dt.date()
+                        work_days = 0
+                        while current <= end_dt.date():
+                            if current.weekday() < 5:  # 周一到周五
+                                work_days += 1
+                            current += timedelta(days=1)
+
+                        st.info(f"涉及工作日: {work_days} 天")
+
+    elif time_tool == "性能测试工具":
+        st.markdown('<div class="category-card">🚀 性能测试工具</div>', unsafe_allow_html=True)
+
+        tab1, tab2 = st.tabs(["时间戳生成", "响应时间分析"])
+
+        with tab1:
+            col1, col2 = st.columns(2)
+            with col1:
+                duration = st.number_input("测试时长（秒）", min_value=1, value=60, key="perf_duration")
+                rps = st.number_input("每秒请求数", min_value=1, value=10, key="perf_rps")
+
+                # 添加开始时间选择
+                test_date = st.date_input("测试日期", datetime.date.today(), key="perf_test_date")
+                test_time = st.time_input("测试开始时间", datetime.time(10, 0), key="perf_test_time")
+
+            with col2:
+                if st.button("生成时间戳", use_container_width=True, key="generate_timestamps_btn"):
+                    # 使用选择的日期时间作为基准
+                    base_datetime = datetime.datetime.combine(test_date, test_time)
+
+                    timestamps = dt_utils.get_performance_test_timestamps(duration, rps, base_datetime)
+                    st.success(f"生成了 {len(timestamps)} 个时间戳")
+
+                    # 显示前10个时间戳作为示例
+                    sample_timestamps = [
+                        f"{datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}"
+                        for ts in timestamps[:10]
+                    ]
+                    st.text_area("前10个时间戳示例", "\n".join(sample_timestamps), height=150, key="timestamp_samples")
+
+                    # 统计信息
+                    intervals = [timestamps[i + 1] - timestamps[i] for i in range(len(timestamps) - 1)]
+                    avg_interval = sum(intervals) / len(intervals)
+                    st.info(f"平均间隔: {avg_interval:.6f} 秒")
+                    st.info(f"实际RPS: {1 / avg_interval:.2f}")
+
+                    # 提供下载
+                    timestamp_data = "\n".join([f"{ts:.6f}" for ts in timestamps])
+                    st.download_button(
+                        "📥 下载时间戳数据",
+                        timestamp_data,
+                        file_name="performance_timestamps.txt",
+                        mime="text/plain",
+                        key="download_timestamps"
+                    )
+
+        with tab2:
+            st.markdown("**响应时间百分位数计算**")
+            response_times_input = st.text_area(
+                "输入响应时间列表（毫秒）",
+                "100, 150, 200, 120, 300, 180, 250, 110, 190, 220, 280, 130, 160, 240, 170",
+                help="用逗号分隔的响应时间数值，单位毫秒"
+            )
+
+            if st.button("计算百分位数", use_container_width=True):
+                try:
+                    response_times = [float(x.strip()) for x in response_times_input.split(",") if x.strip()]
+                    percentiles = dt_utils.calculate_response_time_percentiles(response_times)
+
+                    st.success("响应时间百分位数:")
+                    col_p1, col_p2, col_p3, col_p4 = st.columns(4)
+                    with col_p1:
+                        st.metric("P50", f"{percentiles[50]:.2f}ms")
+                    with col_p2:
+                        st.metric("P90", f"{percentiles[90]:.2f}ms")
+                    with col_p3:
+                        st.metric("P95", f"{percentiles[95]:.2f}ms")
+                    with col_p4:
+                        st.metric("P99", f"{percentiles[99]:.2f}ms")
+
+                    # 显示所有数据
+                    st.dataframe({
+                        '统计量': ['最小值', '平均值', '最大值', '总数'],
+                        '数值': [f"{min(response_times):.2f}ms",
+                               f"{sum(response_times) / len(response_times):.2f}ms",
+                               f"{max(response_times):.2f}ms",
+                               len(response_times)]
+                    })
+
+                except Exception as e:
+                    st.error(f"计算错误: {e}")
+
+    elif time_tool == "定时任务分析":
+        st.markdown('<div class="category-card">⏰ 定时任务分析</div>', unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            cron_expression = st.text_input(
+                "Cron表达式",
+                "0 9 * * 1-5",
+                help="例如: 0 9 * * 1-5 表示工作日早上9点",
+                key="cron_expression"
+            )
+            start_date = st.date_input("开始日期", datetime.date.today(), key="cron_start_date")
+            # 添加开始时间选择
+            start_time = st.time_input("开始时间", datetime.time(0, 0), key="cron_start_time")
+            run_count = st.number_input("生成执行次数", min_value=1, max_value=20, value=5, key="cron_run_count")
+
+        with col2:
+            if st.button("分析Cron表达式", use_container_width=True, key="analyze_cron_btn"):
+                # 组合日期和时间
+                start_datetime = datetime.datetime.combine(start_date, start_time)
+                next_runs = dt_utils.generate_cron_next_runs(cron_expression, start_datetime, run_count)
+
+                if isinstance(next_runs, list) and next_runs:
+                    st.success(f"接下来 {run_count} 次执行时间:")
+                    for i, run_time in enumerate(next_runs, 1):
+                        if isinstance(run_time, datetime.datetime):
+                            st.write(f"{i}. {run_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                        else:
+                            st.write(f"{i}. {run_time}")
+                else:
+                    st.error("无法解析Cron表达式")
+
+            # Cron表达式示例
+            with st.expander("Cron表达式示例", expanded=False):
+                st.write("""
+                **基本格式:** `分 时 日 月 周`
+
+                **常用示例:**
+                - `0 9 * * *` - 每天9:00
+                - `0 9 * * 1-5` - 工作日9:00  
+                - `*/15 * * * *` - 每15分钟
+                - `0 0 1 * *` - 每月1号0:00
+                - `0 12 * * 0` - 每周日12:00
+                - `0 0,12 * * *` - 每天0点和12点
+                - `0 4-6 * * *` - 每天4、5、6点
+                """)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
