@@ -23,4 +23,3 @@ psutil==5.9.6
 scikit-image==0.22.0
 croniter==1.4.1
 python-holidays==0.36
-dateparser==1.1.8
