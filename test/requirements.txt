@@ -22,3 +22,4 @@ tqdm==4.66.1
 psutil==5.9.6
 scikit-image==0.22.0
 croniter==1.4.1
+holidays==0.58
