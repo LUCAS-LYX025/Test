@@ -23,7 +23,9 @@ from data_constants import PROVINCES, COUNTRIES, CATEGORIES, PROVINCE_MAP, TO_SE
 from data_constants import LANGUAGE_TEMPLATES
 from data_constants import PREDEFINED_PATTERNS
 from data_constants import PROVINCE_CITY_AREA_CODES
-from data_constants import PLATFORM_MAPPING, STYLE_PREVIEWS, LANGUAGE_DESCRIPTIONS
+from data_constants import PLATFORM_MAPPING
+from data_constants import STYLE_PREVIEWS
+from data_constants import LANGUAGE_DESCRIPTIONS
 from data_constants import SIMPLE_EXAMPLE, MEDIUM_EXAMPLE, COMPLEX_EXAMPLE
 from datetime_utils import DateTimeUtils
 from json_file_utils import JSONFileUtils
