@@ -125,28 +125,25 @@ class IPQueryTool:
             'ip_type': '公网IP'
         }
 
-    def get_public_ip(self, mode="auto", request=None):
+    def get_public_ip(self, request=None):
         """
-        获取公网IP - 支持多种模式
-        mode: auto|client|server
+        改进的公网IP获取方法
+        如果传入request参数，优先获取客户端IP
         """
-        # 自动模式：优先客户端IP，没有则用服务器IP
-        if mode == "auto" and request is not None:
-            client_ip = self._get_simple_client_ip(request)
+        # 如果有request参数，尝试获取客户端真实IP
+        if request is not None:
+            client_ip = self._get_client_ip_from_request(request)
             if client_ip and client_ip != "无法获取客户端IP":
                 return client_ip
 
-        # 客户端模式：必须传入request
-        if mode == "client" and request is not None:
-            client_ip = self._get_simple_client_ip(request)
-            return client_ip if client_ip else "需要request参数获取客户端IP"
-
-        # 服务器模式或回退：获取服务器公网IP
+        # 原有逻辑保持不变
         services = [
             'https://api.ipify.org',
             'https://ident.me',
             'https://checkip.amazonaws.com',
             'https://ipinfo.io/ip',
+            'https://api.my-ip.io/ip',
+            'https://ipecho.net/plain'
         ]
 
         for service in services:
@@ -154,6 +151,7 @@ class IPQueryTool:
                 response = requests.get(service, timeout=5)
                 if response.status_code == 200:
                     ip = response.text.strip()
+                    # 验证IP格式
                     if re.match(r'^(\d{1,3}\.){3}\d{1,3}$', ip):
                         return ip
             except:
@@ -161,19 +159,36 @@ class IPQueryTool:
 
         return "获取公网IP失败"
 
-    def _get_simple_client_ip(self, request):
-        """简化版客户端IP获取"""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0].strip()
-            if self._is_valid_ip(ip):
-                return ip
+    def _get_client_ip_from_request(self, request):
+        """从request对象中获取客户端真实IP"""
+        # 按优先级检查各种Header
+        headers_to_check = [
+            'HTTP_X_REAL_IP',
+            'HTTP_X_FORWARDED_FOR',
+            'HTTP_CLIENT_IP',
+            'HTTP_CF_CONNECTING_IP',
+            'HTTP_X_CLUSTER_CLIENT_IP',
+        ]
 
+        for header in headers_to_check:
+            ip = request.META.get(header)
+            if ip:
+                # 处理多个IP的情况（如 X-Forwarded-For: client, proxy1, proxy2）
+                if ',' in ip:
+                    ip = ip.split(',')[0].strip()
+                if self._is_valid_ip(ip):
+                    return ip
+
+        # 最后回退到REMOTE_ADDR
         remote_addr = request.META.get('REMOTE_ADDR')
         if remote_addr and self._is_valid_ip(remote_addr):
             return remote_addr
 
         return "无法获取客户端IP"
+
+    def _is_valid_ip(self, ip):
+        """验证IP地址格式"""
+        return re.match(r'^(\d{1,3}\.){3}\d{1,3}$', ip) is not None
     # def get_public_ip(self):
     #     """改进的公网IP获取方法"""
     #     services = [
