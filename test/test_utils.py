@@ -3182,15 +3182,15 @@ elif tool_category == "IP/域名查询工具":
     with tab1:
         st.markdown("**IP/域名基本信息查询**")
 
-        # 获取当前公网IP
-        if st.button("获取当前公网IP", key="get_public_ip", use_container_width=True):
-            with st.spinner("正在获取当前公网IP..."):
-                public_ip = ip_tool.get_public_ip()
-                if public_ip != "获取公网IP失败":
-                    st.session_state.current_public_ip = public_ip
-                    st.success(f"当前公网IP: {public_ip}")
-                else:
-                    st.error("无法获取当前公网IP")
+        # # 获取当前公网IP
+        # if st.button("获取当前公网IP", key="get_public_ip", use_container_width=True):
+        #     with st.spinner("正在获取当前公网IP..."):
+        #         public_ip = ip_tool.get_public_ip()
+        #         if public_ip != "获取公网IP失败":
+        #             st.session_state.current_public_ip = public_ip
+        #             st.success(f"当前公网IP: {public_ip}")
+        #         else:
+        #             st.error("无法获取当前公网IP")
 
         # 输入框
         if 'current_public_ip' in st.session_state:
