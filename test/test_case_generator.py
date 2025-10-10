@@ -2,7 +2,7 @@ import json
 import re
 import time
 import requests
-from typing import List, Dict, Optional, Union
+from typing import List, Dict
 
 
 class TestCaseGenerator:
@@ -181,9 +181,50 @@ class TestCaseGenerator:
 
     def _call_spark_api(self, requirement: str, api_config: Dict, id_prefix: str,
                         case_style: str, language: str) -> List[Dict]:
-        """调用讯飞星火API（简化实现）"""
-        # 这里可以根据讯飞星火的实际API进行调整
-        return self._call_openai_api(requirement, api_config, id_prefix, case_style, language)
+        """调用讯飞星火API（使用OpenAI兼容接口）"""
+        try:
+            from openai import OpenAI
+
+            # 获取配置参数
+            api_key = api_config.get('api_key', '')
+            api_base = api_config.get('api_base', 'http://maas-api.cn-huabei-1.xf-yun.com/v1')
+            model_id = api_config.get('model_id', '')
+
+            if not api_key:
+                raise ValueError("讯飞星火API Key不能为空")
+
+            # 创建OpenAI客户端
+            client = OpenAI(api_key=api_key, base_url=api_base)
+
+            # 构建提示词
+            prompt = self._build_prompt(requirement, id_prefix, case_style, language)
+
+            # 构建消息
+            messages = [
+                {"role": "user", "content": prompt}
+            ]
+
+            # 调用API - 简化参数，移除不支持的extra_body
+            response = client.chat.completions.create(
+                model=model_id,
+                messages=messages,
+                stream=False,
+                temperature=0.3,
+                max_tokens=4096
+                # 移除 extra_headers 和 extra_body 参数
+            )
+
+            # 提取响应内容
+            if response.choices and response.choices[0].message.content:
+                result_text = response.choices[0].message.content
+                return self._parse_testcases(result_text, id_prefix, language)
+            else:
+                raise Exception("API响应格式错误，未找到有效内容")
+
+        except ImportError:
+            raise Exception("请安装openai库: pip install openai")
+        except Exception as e:
+            raise Exception(f"讯飞星火API调用失败: {str(e)}")
 
     def _call_glm_api(self, requirement: str, api_config: Dict, id_prefix: str,
                       case_style: str, language: str) -> List[Dict]:

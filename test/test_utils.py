@@ -4554,13 +4554,25 @@ elif tool_category == "测试用例生成器":
                 key="spark_api_key"
             )
         with col2:
-            app_id = st.text_input(
-                "App ID",
+            model_id = st.text_input(
+                "Model ID",
                 value="",
-                help="请输入讯飞星火的App ID",
-                key="spark_app_id"
+                help="讯飞星火的模型ID",
+                key="spark_model_id"
             )
-        api_config = {"api_key": api_key, "app_id": app_id}
+
+        api_base = st.text_input(
+            "API Base",
+            value="http://maas-api.cn-huabei-1.xf-yun.com/v1",
+            help="讯飞星火的API基础地址，通常使用默认值即可",
+            key="spark_api_base"
+        )
+
+        api_config = {
+            "api_key": api_key,
+            "api_base": api_base,
+            "model_id": model_id
+        }
         st.info("💡 讯飞星火在技术文档和代码相关任务中表现优秀")
 
     elif model_provider == "智谱ChatGLM":
@@ -4673,7 +4685,7 @@ elif tool_category == "测试用例生成器":
             validation_errors.append("请输入OpenAI API Key")
         elif platform == "baidu" and (not api_config.get("api_key") or not api_config.get("secret_key")):
             validation_errors.append("请输入百度文心一言的API Key和Secret Key")
-        elif platform == "spark" and (not api_config.get("api_key") or not api_config.get("app_id")):
+        elif  platform == "spark" and not api_config.get("api_key"):
             validation_errors.append("请输入讯飞星火的API Key和App ID")
         elif platform == "glm" and not api_config.get("api_key"):
             validation_errors.append("请输入智谱ChatGLM API Key")
