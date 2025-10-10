@@ -125,35 +125,28 @@ class IPQueryTool:
             'ip_type': '公网IP'
         }
 
-    def get_public_ip(self, request=None):
+    def get_public_ip(self, mode="auto", request=None):
         """
-        获取公网IP地址
-        注意：如果在服务器上运行，获取的是服务器IP而不是你本地IP
-        如果需要获取访问者IP，请传入request参数
-
-        Args:
-            request: 可选的request对象，用于获取客户端真实IP
+        获取公网IP - 支持多种模式
+        mode: auto|client|server
         """
-        # 如果传入了request，尝试获取客户端IP
-        if request is not None:
-            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-            if x_forwarded_for:
-                client_ip = x_forwarded_for.split(',')[0].strip()
-                if re.match(r'^(\d{1,3}\.){3}\d{1,3}$', client_ip):
-                    return client_ip
+        # 自动模式：优先客户端IP，没有则用服务器IP
+        if mode == "auto" and request is not None:
+            client_ip = self._get_simple_client_ip(request)
+            if client_ip and client_ip != "无法获取客户端IP":
+                return client_ip
 
-            remote_addr = request.META.get('REMOTE_ADDR')
-            if remote_addr and re.match(r'^(\d{1,3}\.){3}\d{1,3}$', remote_addr):
-                return remote_addr
+        # 客户端模式：必须传入request
+        if mode == "client" and request is not None:
+            client_ip = self._get_simple_client_ip(request)
+            return client_ip if client_ip else "需要request参数获取客户端IP"
 
-        # 原有逻辑 - 获取服务器公网IP
+        # 服务器模式或回退：获取服务器公网IP
         services = [
             'https://api.ipify.org',
             'https://ident.me',
             'https://checkip.amazonaws.com',
             'https://ipinfo.io/ip',
-            'https://api.my-ip.io/ip',
-            'https://ipecho.net/plain'
         ]
 
         for service in services:
@@ -167,6 +160,20 @@ class IPQueryTool:
                 continue
 
         return "获取公网IP失败"
+
+    def _get_simple_client_ip(self, request):
+        """简化版客户端IP获取"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0].strip()
+            if self._is_valid_ip(ip):
+                return ip
+
+        remote_addr = request.META.get('REMOTE_ADDR')
+        if remote_addr and self._is_valid_ip(remote_addr):
+            return remote_addr
+
+        return "无法获取客户端IP"
     # def get_public_ip(self):
     #     """改进的公网IP获取方法"""
     #     services = [
