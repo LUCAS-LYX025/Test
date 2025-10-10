@@ -125,8 +125,28 @@ class IPQueryTool:
             'ip_type': '公网IP'
         }
 
-    def get_public_ip(self):
-        """改进的公网IP获取方法"""
+    def get_public_ip(self, request=None):
+        """
+        获取公网IP地址
+        注意：如果在服务器上运行，获取的是服务器IP而不是你本地IP
+        如果需要获取访问者IP，请传入request参数
+
+        Args:
+            request: 可选的request对象，用于获取客户端真实IP
+        """
+        # 如果传入了request，尝试获取客户端IP
+        if request is not None:
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                client_ip = x_forwarded_for.split(',')[0].strip()
+                if re.match(r'^(\d{1,3}\.){3}\d{1,3}$', client_ip):
+                    return client_ip
+
+            remote_addr = request.META.get('REMOTE_ADDR')
+            if remote_addr and re.match(r'^(\d{1,3}\.){3}\d{1,3}$', remote_addr):
+                return remote_addr
+
+        # 原有逻辑 - 获取服务器公网IP
         services = [
             'https://api.ipify.org',
             'https://ident.me',
@@ -141,13 +161,35 @@ class IPQueryTool:
                 response = requests.get(service, timeout=5)
                 if response.status_code == 200:
                     ip = response.text.strip()
-                    # 验证IP格式
                     if re.match(r'^(\d{1,3}\.){3}\d{1,3}$', ip):
                         return ip
             except:
                 continue
 
         return "获取公网IP失败"
+    # def get_public_ip(self):
+    #     """改进的公网IP获取方法"""
+    #     services = [
+    #         'https://api.ipify.org',
+    #         'https://ident.me',
+    #         'https://checkip.amazonaws.com',
+    #         'https://ipinfo.io/ip',
+    #         'https://api.my-ip.io/ip',
+    #         'https://ipecho.net/plain'
+    #     ]
+    #
+    #     for service in services:
+    #         try:
+    #             response = requests.get(service, timeout=5)
+    #             if response.status_code == 200:
+    #                 ip = response.text.strip()
+    #                 # 验证IP格式
+    #                 if re.match(r'^(\d{1,3}\.){3}\d{1,3}$', ip):
+    #                     return ip
+    #         except:
+    #             continue
+    #
+    #     return "获取公网IP失败"
 
     def get_ip_domain_info(self, target, is_ip):
         """获取IP/域名详细信息"""
