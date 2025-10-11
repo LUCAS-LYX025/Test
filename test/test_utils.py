@@ -16,6 +16,8 @@ from data_generator import DataGenerator
 import sys
 import io
 
+from zendao import ZenTaoPerformanceExporter
+
 print(sys.path)
 sys.path.append('/mount/src/test/test')
 from data_constants import PROVINCES, COUNTRIES, CATEGORIES, PROVINCE_MAP, TO_SECONDS, RANDOM_STRING_TYPES, \
@@ -4842,5 +4844,657 @@ elif tool_category == "测试用例生成器":
                                 f"使用模型: {history.get('model', '未知')}, "
                                 f"风格: {history.get('case_style', '标准格式')}, "
                                 f"语言: {history.get('language', '中文')}")
+
+elif tool_category == "禅道绩效统计":
+    show_doc("zentao_performance_stats")
+
+    # 数据库配置
+    st.markdown("### 🔑 数据库配置")
+    col1, col2 = st.columns(2)
+    with col1:
+        db_host = st.text_input("数据库地址", value="", key="zentao_db_host")
+        db_port = st.number_input("端口", value=3306, key="zentao_db_port")
+        db_user = st.text_input("用户名", value="", key="zentao_db_user")
+    with col2:
+        db_password = st.text_input("密码", type="password", value="", key="zentao_db_password")
+        db_name = st.text_input("数据库名", value="zentao", key="zentao_db_name")
+
+    # 测试数据库连接
+    if st.button("🔗 测试数据库连接", key="test_zentao_connection"):
+        if not all([db_host, db_user, db_password, db_name]):
+            st.error("请填写完整的数据库配置")
+        else:
+            try:
+                db_config = {
+                    'host': db_host,
+                    'port': int(db_port),
+                    'user': db_user,
+                    'password': db_password,
+                    'database': db_name,
+                    'charset': 'utf8mb4'
+                }
+                exporter = ZenTaoPerformanceExporter(db_config)
+                if exporter.mysql_db:
+                    products = exporter.get_products()
+                    roles = exporter.get_user_roles()
+                    bug_types = exporter.get_bug_types()
+
+                    st.success(f"✅ 数据库连接成功！")
+                    st.info(f"发现 {len(products)} 个产品, {len(roles)} 种角色, {len(bug_types)} 种缺陷类型")
+                    exporter.close_connection()
+                else:
+                    st.error("❌ 数据库连接失败")
+            except Exception as e:
+                st.error(f"❌ 数据库连接失败: {str(e)}")
+
+    st.markdown("---")
+
+    # 统计配置
+    st.markdown("### ⚙️ 统计配置")
+
+    # 动态获取配置
+    if st.button("🔄 加载系统配置", key="load_zentao_config"):
+        try:
+            db_config = {
+                'host': db_host,
+                'port': int(db_port),
+                'user': db_user,
+                'password': db_password,
+                'database': db_name,
+                'charset': 'utf8mb4'
+            }
+            exporter = ZenTaoPerformanceExporter(db_config)
+            if exporter.mysql_db:
+                # 获取动态数据
+                products = exporter.get_products()
+                roles = exporter.get_user_roles()
+                bug_types = exporter.get_bug_types()
+
+                # 保存到session state
+                st.session_state.zentao_products = products
+                st.session_state.zentao_roles = roles
+                st.session_state.zentao_bug_types = bug_types
+                st.session_state.zentao_exporter = exporter
+
+                st.success("✅ 系统配置加载成功！")
+            else:
+                st.error("❌ 数据库连接失败，无法加载配置")
+        except Exception as e:
+            st.error(f"❌ 加载配置失败: {str(e)}")
+
+    # 时间配置
+    col1, col2 = st.columns(2)
+    with col1:
+        start_date = st.date_input("开始日期", datetime.datetime.now() - datetime.timedelta(days=30),
+                                   key="zentao_start_date")
+        end_date = st.date_input("结束日期", datetime.datetime.now(), key="zentao_end_date")
+
+        # 转换为字符串格式
+        start_date_str = start_date.strftime('%Y-%m-%d 00:00:00')
+        end_date_str = end_date.strftime('%Y-%m-%d 23:59:59')
+
+    with col2:
+        stat_type = st.radio("统计类型", ["测试绩效", "开发绩效"], horizontal=True, key="zentao_stat_type")
+
+    # 产品选择
+    if 'zentao_products' in st.session_state and st.session_state.zentao_products:
+        products = st.session_state.zentao_products
+        product_options = {item[0]: item[1] for item in products}
+
+        selected_products = st.multiselect(
+            "选择要统计的产品",
+            options=list(product_options.keys()),
+            format_func=lambda x: f"{product_options[x]} (ID: {x})",
+            key="zentao_selected_products"
+        )
+    else:
+        st.warning("请先点击'加载系统配置'来获取产品列表")
+        selected_products = []
+
+    # 角色选择（现在显示中文）
+    # 角色选择（现在显示中文）
+    if 'zentao_roles' in st.session_state and st.session_state.zentao_roles:
+        roles = st.session_state.zentao_roles
+        # 创建角色映射：key->中文名
+        role_mapping = {item[0]: item[1] for item in roles}
+
+        # 显示当前可用的角色
+        st.write(f"📋 系统检测到 {len(role_mapping)} 个角色")
+
+        # 根据统计类型设置默认角色
+        if stat_type == "测试绩效":
+            # 测试绩效：优先选择qa角色
+            if 'qa' in role_mapping:
+                default_roles = ['qa']
+                role_desc = "默认选择 'qa' 角色"
+            elif '测试' in role_mapping.values():
+                # 如果角色名是中文"测试"
+                test_role_key = [key for key, value in role_mapping.items() if value == '测试'][0]
+                default_roles = [test_role_key]
+                role_desc = f"默认选择 '{role_mapping[test_role_key]}' 角色"
+            else:
+                # 查找包含测试关键词的角色
+                test_roles = [key for key, name in role_mapping.items()
+                              if any(word in str(name).lower() for word in ['测试', 'qa', 'test', 'tester'])]
+                default_roles = test_roles[:1] if test_roles else list(role_mapping.keys())[:1]
+                role_desc = "自动选择测试相关角色"
+
+            st.info(f"🧪 测试绩效统计 - {role_desc}")
+
+        else:
+            # 开发绩效：优先选择dev角色
+            if 'dev' in role_mapping:
+                default_roles = ['dev']
+                role_desc = "默认选择 'dev' 角色"
+            elif '开发' in role_mapping.values():
+                # 如果角色名是中文"开发"
+                dev_role_key = [key for key, value in role_mapping.items() if value == '开发'][0]
+                default_roles = [dev_role_key]
+                role_desc = f"默认选择 '{role_mapping[dev_role_key]}' 角色"
+            else:
+                # 查找包含开发关键词的角色
+                dev_roles = [key for key, name in role_mapping.items()
+                             if any(word in str(name).lower() for word in ['开发', 'dev', '开发人员', 'developer', '研发'])]
+                default_roles = dev_roles[:1] if dev_roles else list(role_mapping.keys())[:1]
+                role_desc = "自动选择开发相关角色"
+
+            st.info(f"💻 开发绩效统计 - {role_desc}")
+
+        selected_roles = st.multiselect(
+            "选择参与统计的角色",
+            options=list(role_mapping.keys()),
+            format_func=lambda x: role_mapping[x],  # 显示中文名
+            default=default_roles,
+            key="zentao_selected_roles"
+        )
+
+        # 保存角色映射到session state，用于后续显示
+        st.session_state.role_mapping = role_mapping
+
+        # 显示当前选择的角色中文名
+        if selected_roles:
+            selected_role_names = [role_mapping[role] for role in selected_roles]
+            st.success(f"✅ 已选择 {len(selected_roles)} 个角色: {', '.join(selected_role_names)}")
+        else:
+            st.warning("⚠️ 请至少选择一个参与统计的角色")
+
+    else:
+        selected_roles = []
+        st.session_state.role_mapping = {}
+        st.warning("请先点击'加载系统配置'来获取角色列表")
+
+    # 排除的缺陷类型（现在显示中文）
+    if 'zentao_bug_types' in st.session_state and st.session_state.zentao_bug_types:
+        bug_types = st.session_state.zentao_bug_types
+        type_options = {item[0]: item[1] for item in bug_types}
+
+        # 默认排除一些非功能性缺陷类型
+        default_exclude_keys = []
+        for key, name in type_options.items():
+            if any(exclude in name.lower() for exclude in ['变更', '设计', '文档', '改进', '接口']):
+                default_exclude_keys.append(key)
+
+        exclude_types = st.multiselect(
+            "选择要排除的缺陷类型",
+            options=list(type_options.keys()),
+            format_func=lambda x: type_options[x],
+            default=default_exclude_keys,
+            key="zentao_exclude_types"
+        )
+    else:
+        exclude_types = []
+
+    # 超时配置
+    st.markdown("### ⏰ 超时响应配置")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("高优先级缺陷")
+        high_priority_normal = st.number_input("工作日响应时限(小时)", min_value=1, value=24, key="high_normal")
+        high_priority_weekend = st.number_input("周末响应时限(小时)", min_value=1, value=72, key="high_weekend")
+
+    with col2:
+        st.subheader("普通优先级缺陷")
+        normal_priority_normal = st.number_input("工作日响应时限(小时)", min_value=1, value=72, key="normal_normal")
+        normal_priority_weekend = st.number_input("周末响应时限(小时)", min_value=1, value=120, key="normal_weekend")
+
+    # 生成报告
+    if st.button("🚀 生成统计报告", use_container_width=True, key="generate_zentao_stats"):
+        if not selected_products:
+            st.error("请至少选择一个产品")
+            st.stop()
+
+        if not selected_roles:
+            st.error("请至少选择一个角色")
+            st.stop()
+
+        if not all([db_host, db_user, db_password, db_name]):
+            st.error("请填写完整的数据库配置")
+            st.stop()
+
+        try:
+            # 创建配置
+            db_config = {
+                'host': db_host,
+                'port': int(db_port),
+                'user': db_user,
+                'password': db_password,
+                'database': db_name,
+                'charset': 'utf8mb4'
+            }
+
+            stats_config = {
+                'start_date': start_date_str,
+                'end_date': end_date_str,
+                'roles': selected_roles,
+                'exclude_types': exclude_types,
+                'high_priority_normal_hours': high_priority_normal,
+                'high_priority_weekend_hours': high_priority_weekend,
+                'normal_priority_normal_hours': normal_priority_normal,
+                'normal_priority_weekend_hours': normal_priority_weekend
+            }
+
+            # 创建导出器实例
+            exporter = ZenTaoPerformanceExporter(db_config)
+
+            if exporter.mysql_db is None:
+                st.error("数据库连接失败，请检查配置")
+                st.stop()
+
+            with st.spinner("正在查询数据..."):
+                all_data = {}
+                all_detail_data = {}  # 存储明细数据
+                product_options = {item[0]: item[1] for item in st.session_state.zentao_products}
+
+                for product_id in selected_products:
+                    product_name = product_options[product_id]
+
+                    # 根据统计类型查询数据
+                    if stat_type == "测试绩效":
+                        df = exporter.query_qa_stats(product_id, stats_config)
+                        # 新增：查询测试绩效明细
+                        detail_df = exporter.query_qa_detail_stats(product_id, stats_config)
+                    else:
+                        df = exporter.query_dev_stats(product_id, stats_config)
+                        detail_df = None  # 开发绩效暂时没有明细
+
+                    if df is not None and not df.empty:
+                        all_data[product_name] = df
+                        if detail_df is not None and not detail_df.empty:
+                            all_detail_data[product_name] = detail_df
+                    else:
+                        st.warning(f"产品 {product_name} 没有查询到数据")
+
+            # 显示结果
+            # 显示结果
+            if all_data:
+                st.success(f"✅ 成功查询到 {len(all_data)} 个产品的数据")
+
+                # 显示配置信息
+                with st.expander("📋 统计配置详情", expanded=False):
+                    role_mapping = st.session_state.get('role_mapping', {})
+                    type_mapping = st.session_state.get('type_mapping', {})
+
+                    st.json({
+                        "时间范围": f"{start_date_str} 至 {end_date_str}",
+                        "统计类型": stat_type,
+                        "参与角色": [role_mapping.get(r, r) for r in selected_roles],
+                        "排除类型": [type_mapping.get(t, t) for t in exclude_types],
+                        "超时配置": {
+                            "高优先级缺陷": f"工作日{high_priority_normal}小时, 周末{high_priority_weekend}小时",
+                            "普通优先级缺陷": f"工作日{normal_priority_normal}小时, 周末{normal_priority_weekend}小时"
+                        }
+                    })
+
+                # 最简单的方法：所有expander都默认展开，使用固定下载key
+                for idx, (product_name, df) in enumerate(all_data.items()):
+                    # 总是展开expander
+                    with st.expander(f"📊 {product_name} - {stat_type}", expanded=True):
+                        st.dataframe(df, use_container_width=True)
+
+                        # 使用固定的下载key
+                        csv_data = df.to_csv(index=False).encode('utf-8')
+                        st.download_button(
+                            label=f"📥 下载 {product_name} {stat_type}",
+                            data=csv_data,
+                            file_name=f"{product_name}_{stat_type}_{start_date_str[:10]}_to_{end_date_str[:10]}.csv",
+                            mime="text/csv",
+                            key=f"download_single_{product_name}_{idx}"
+                        )
+
+                        if stat_type == "测试绩效" and product_name in all_detail_data:
+                            detail_df = all_detail_data[product_name]
+                            detail_csv_data = detail_df.to_csv(index=False).encode('utf-8')
+                            st.download_button(
+                                label=f"📥 下载 {product_name} 测试绩效明细",
+                                data=detail_csv_data,
+                                file_name=f"{product_name}_测试绩效明细_{start_date_str[:10]}_to_{end_date_str[:10]}.csv",
+                                mime="text/csv",
+                                key=f"download_detail_{product_name}_{idx}"
+                            )
+
+                # Excel下载放在最后，使用固定key
+                st.markdown("---")
+                # 提供Excel格式的多sheet下载
+                st.markdown("### 📊 所有绩效数据下载")
+
+                # 创建Excel文件
+                excel_buffer = io.BytesIO()
+                with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                    # 为每个产品创建一个sheet
+                    for product_name, df in all_data.items():
+                        # 清理sheet名称（Excel限制）
+                        sheet_name = exporter._clean_sheet_name(f"{product_name}_{stat_type}")
+
+                        # 直接使用原始数据框，确保数据格式一致
+                        df_with_info = df.copy()
+
+                        # 添加统计时间范围信息（作为第一列或单独行）
+                        # 方法1：作为单独的第一行
+                        # 创建包含统计信息的DataFrame
+                        info_df = pd.DataFrame([['统计时间范围', f'{start_date_str[:10]}至{end_date_str[:10]}']])
+
+                        # 先写入统计信息
+                        info_df.to_excel(writer, sheet_name=sheet_name, index=False, header=False, startrow=0)
+
+                        # 然后写入主要数据，从第2行开始
+                        df_with_info.to_excel(writer, sheet_name=sheet_name, index=False, startrow=2)
+
+                        # 获取工作表
+                        worksheet = writer.sheets[sheet_name]
+
+                        # 格式化工作表
+                        try:
+                            from openpyxl.styles import Font, Alignment, PatternFill
+
+                            # 设置统计信息行的样式
+                            info_cell = worksheet.cell(row=1, column=1)
+                            info_cell.font = Font(bold=True, size=12, color="FFFFFF")
+                            info_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+                            info_cell.alignment = Alignment(horizontal='center', vertical='center')
+                            worksheet.merge_cells(start_row=1, start_column=1, end_row=1,
+                                                  end_column=len(df_with_info.columns))
+
+                            # 设置表头样式（第3行）
+                            header_font = Font(bold=True, color="FFFFFF")
+                            header_fill = PatternFill(start_color="7030A0", end_color="7030A0", fill_type="solid")
+
+                            for col in range(1, len(df_with_info.columns) + 1):
+                                cell = worksheet.cell(row=3, column=col)
+                                cell.font = header_font
+                                cell.fill = header_fill
+                                cell.alignment = Alignment(horizontal='center', vertical='center')
+
+                            # 设置列宽
+                            for col_idx, column in enumerate(df_with_info.columns, 1):
+                                max_length = max(
+                                    df_with_info[column].astype(str).str.len().max() if len(df_with_info) > 0 else 0,
+                                    len(str(column))
+                                )
+                                col_letter = chr(64 + col_idx) if col_idx <= 26 else f"A{chr(64 + col_idx - 26)}"
+                                worksheet.column_dimensions[col_letter].width = min(max_length + 2, 50)
+
+                            # 设置内容对齐（从第4行开始）
+                            for row in worksheet.iter_rows(min_row=4, max_row=worksheet.max_row,
+                                                           max_col=len(df_with_info.columns)):
+                                for cell in row:
+                                    cell.alignment = Alignment(horizontal='center', vertical='center')
+
+                            # 冻结窗格（表头行）
+                            worksheet.freeze_panes = 'A4'
+
+                        except Exception as e:
+                            st.warning(f"格式化工作表 {sheet_name} 时出现警告: {e}")
+
+                    # 添加汇总sheet
+                    if all_data:
+                        # 创建汇总数据
+                        summary_data = []
+                        for product_name, df in all_data.items():
+                            # 使用与CSV相同的计算逻辑
+                            total_bugs = df['提交bug数量'].sum() if '提交bug数量' in df.columns else 0
+                            total_timeout = df['总超时响应次数'].sum() if '总超时响应次数' in df.columns else 0
+
+                            summary_data.append({
+                                '产品名称': product_name,
+                                '统计人数': len(df),
+                                '总bug数': total_bugs,
+                                '总超时数': total_timeout,
+                                '超时率': f"{(total_timeout / total_bugs * 100 if total_bugs > 0 else 0):.2f}%"
+                            })
+
+                        summary_df = pd.DataFrame(summary_data)
+
+                        # 写入汇总sheet
+                        summary_info_df = pd.DataFrame([['统计时间范围', f'{start_date_str[:10]}至{end_date_str[:10]}']])
+                        summary_info_df.to_excel(writer, sheet_name='数据汇总', index=False, header=False, startrow=0)
+                        summary_df.to_excel(writer, sheet_name='数据汇总', index=False, startrow=2)
+
+                        # 格式化汇总sheet
+                        summary_worksheet = writer.sheets['数据汇总']
+                        try:
+                            from openpyxl.styles import Font, Alignment, PatternFill
+
+                            # 设置统计信息行样式
+                            info_cell = summary_worksheet.cell(row=1, column=1)
+                            info_cell.font = Font(bold=True, size=12, color="FFFFFF")
+                            info_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+                            info_cell.alignment = Alignment(horizontal='center', vertical='center')
+                            summary_worksheet.merge_cells(start_row=1, start_column=1, end_row=1,
+                                                          end_column=len(summary_df.columns))
+
+                            # 设置表头样式
+                            header_font = Font(bold=True, color="FFFFFF")
+                            header_fill = PatternFill(start_color="7030A0", end_color="7030A0", fill_type="solid")
+
+                            for col in range(1, len(summary_df.columns) + 1):
+                                cell = summary_worksheet.cell(row=3, column=col)
+                                cell.font = header_font
+                                cell.fill = header_fill
+                                cell.alignment = Alignment(horizontal='center', vertical='center')
+
+                            # 设置列宽
+                            for col_idx, column in enumerate(summary_df.columns, 1):
+                                max_length = max(
+                                    summary_df[column].astype(str).str.len().max() if len(summary_df) > 0 else 0,
+                                    len(str(column))
+                                )
+                                col_letter = chr(64 + col_idx) if col_idx <= 26 else f"A{chr(64 + col_idx - 26)}"
+                                summary_worksheet.column_dimensions[col_letter].width = min(max_length + 2, 50)
+
+                            # 设置内容对齐
+                            for row in summary_worksheet.iter_rows(min_row=4, max_row=summary_worksheet.max_row,
+                                                                   max_col=len(summary_df.columns)):
+                                for cell in row:
+                                    cell.alignment = Alignment(horizontal='center', vertical='center')
+
+                            summary_worksheet.freeze_panes = 'A4'
+
+                        except Exception as e:
+                            st.warning(f"格式化汇总工作表时出现警告: {e}")
+
+                excel_buffer.seek(0)
+
+                # 下载Excel文件
+                st.download_button(
+                    label="📥 下载所有绩效数据",
+                    data=excel_buffer.getvalue(),
+                    file_name=f"禅道{stat_type}_统计_{start_date_str[:10]}_to_{end_date_str[:10]}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="download_excel_main"
+                )
+
+                st.info("💡 Excel文件包含每个产品的独立Sheet和数据汇总Sheet")
+
+            else:
+                st.warning("⚠️ 没有查询到任何数据，请检查配置和时间范围")
+
+            # 关闭连接
+            exporter.close_connection()
+
+        except Exception as e:
+            st.error(f"❌ 生成统计报告时出错: {str(e)}")
+            import traceback
+
+            st.error(f"详细错误: {traceback.format_exc()}")
+
+    st.markdown("---")
+
+    # 超时明细核查部分
+    st.markdown("### 🔍 超时明细核查")
+
+    # 根据统计类型显示不同的明细查询
+    if stat_type == "测试绩效":
+        st.info("🔍 当前为测试绩效超时明细查询，超时响应生效取值来源于【⏰超时响应配置】，排除的缺陷类型来源于【系统配置】中的选择要排除的缺陷类型")
+        person_type = "测试人员"
+        placeholder_text = "请输入测试人员真实姓名"
+    else:
+        st.info("🔍 当前为开发绩效超时明细查询")
+        person_type = "开发人员"
+        placeholder_text = "请输入开发人员真实姓名"
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # 产品选择
+        if 'zentao_products' in st.session_state and st.session_state.zentao_products:
+            products = st.session_state.zentao_products
+            product_options = {item[0]: item[1] for item in products}
+
+            detail_product_id = st.selectbox(
+                "选择产品",
+                options=list(product_options.keys()),
+                format_func=lambda x: f"{product_options[x]} (ID: {x})",
+                key="detail_product"
+            )
+        else:
+            detail_product_id = None
+            st.warning("请先加载系统配置")
+
+    with col2:
+        # 人员姓名输入
+        person_name = st.text_input(
+            f"{person_type}姓名",
+            placeholder=placeholder_text,
+            key="person_name"
+        )
+
+    # 时间范围
+    col3, col4 = st.columns(2)
+    with col3:
+        detail_start_date = st.date_input(
+            "开始日期",
+            datetime.datetime.now() - datetime.timedelta(days=30),
+            key="detail_start_date"
+        )
+    with col4:
+        detail_end_date = st.date_input(
+            "结束日期",
+            datetime.datetime.now(),
+            key="detail_end_date"
+        )
+
+    # 超时明细查询按钮
+    if st.button("🔎 查询超时明细", use_container_width=True, key="query_timeout_details"):
+        if not person_name:
+            st.error(f"请输入{person_type}姓名")
+            st.stop()
+
+        if not detail_product_id:
+            st.error("请选择产品")
+            st.stop()
+
+        try:
+            # 转换时间格式
+            detail_start_str = detail_start_date.strftime('%Y-%m-%d 00:00:00')
+            detail_end_str = detail_end_date.strftime('%Y-%m-%d 23:59:59')
+
+            # 创建数据库配置
+            db_config = {
+                'host': db_host,
+                'port': int(db_port),
+                'user': db_user,
+                'password': db_password,
+                'database': db_name,
+                'charset': 'utf8mb4'
+            }
+
+            # 创建配置（使用相同的超时参数）
+            detail_config = {
+                'exclude_types': exclude_types,
+                'high_priority_normal_hours': high_priority_normal,
+                'high_priority_weekend_hours': high_priority_weekend,
+                'normal_priority_normal_hours': normal_priority_normal,
+                'normal_priority_weekend_hours': normal_priority_weekend
+            }
+
+            # 创建exporter实例
+            exporter = ZenTaoPerformanceExporter(db_config)
+
+            if exporter.mysql_db is None:
+                st.error("数据库连接失败，请检查配置")
+                st.stop()
+
+            # 根据统计类型调用不同的明细查询方法
+            if stat_type == "测试绩效":
+                detail_df = exporter.query_qa_timeout_bugs_detail(
+                    person_name,
+                    detail_product_id,
+                    detail_start_str,
+                    detail_end_str,
+                    detail_config
+                )
+            else:
+                detail_df = exporter.query_timeout_bugs_detail(
+                    person_name,
+                    detail_product_id,
+                    detail_start_str,
+                    detail_end_str,
+                    detail_config
+                )
+
+            # 关闭连接
+            exporter.close_connection()
+
+            if detail_df is not None and not detail_df.empty:
+                st.success(f"✅ 找到 {len(detail_df)} 条超时Bug记录")
+
+                # 显示统计信息
+                col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+                with col_stat1:
+                    total_count = len(detail_df)
+                    st.metric("总超时Bug数", total_count)
+                with col_stat2:
+                    high_priority = len(detail_df[detail_df['超时类型'] == '一级超时'])
+                    st.metric("一级超时", high_priority)
+                with col_stat3:
+                    normal_priority = len(detail_df[detail_df['超时类型'] == '普通超时'])
+                    st.metric("普通超时", normal_priority)
+                with col_stat4:
+                    if '是否超时' in detail_df.columns:
+                        actual_timeout = detail_df['是否超时'].sum()
+                        st.metric("确认超时", actual_timeout)
+                    else:
+                        resolved_count = len(detail_df[detail_df['状态'] == '已解决'])
+                        st.metric("已解决", resolved_count)
+
+                # 显示详细数据
+                st.dataframe(detail_df, use_container_width=True)
+
+                # 提供下载 - 使用固定key避免重新渲染
+                csv_data = detail_df.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+                st.download_button(
+                    label=f"📥 下载{person_type}超时明细",
+                    data=csv_data,
+                    file_name=f"{person_name}_{person_type}超时明细_{detail_start_str[:10]}_to_{detail_end_str[:10]}.csv",
+                    mime="text/csv",
+                    key="download_details_main"  # 使用固定key
+                )
+
+            else:
+                st.warning("⚠️ 未找到符合条件的超时Bug记录")
+
+        except Exception as e:
+            st.error(f"❌ 查询超时明细时出错: {str(e)}")
 
 show_general_guidelines()
