@@ -5546,4 +5546,383 @@ elif tool_category == "禅道绩效统计":
         except Exception as e:
             st.error(f"❌ 查询超时明细时出错: {str(e)}")
 
-show_general_guidelines()
+# show_general_guidelines()
+
+# 添加作者介绍
+st.markdown("---")
+
+# 作者介绍主容器
+st.markdown("""
+<div style="
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+    padding: 30px; 
+    border-radius: 15px; 
+    color: white;
+    margin: 20px 0;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+">
+    <h2 style="color: white; text-align: center; margin-bottom: 25px;">👨‍💻 作者介绍</h2>
+</div>
+""", unsafe_allow_html=True)
+
+# 作者信息内容 - 改为三列布局
+col1, col2, col3 = st.columns([1, 2, 1])
+
+with col1:
+    # 微信公众号二维码卡片
+    st.markdown("""
+    <div style="
+        background: white; 
+        padding: 25px 20px; 
+        border-radius: 12px; 
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        border: 1px solid #e0e0e0;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    ">
+    """, unsafe_allow_html=True)
+
+    try:
+        # 使用项目相对路径
+        import os
+
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        wechat_qr_path = os.path.join(current_dir, "fonts", "qrcode.jpg")
+
+        # 二维码图片容器
+        st.markdown("""
+        <div style="
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        ">
+        """, unsafe_allow_html=True)
+        st.image(wechat_qr_path, width=160)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # 微信公众号信息
+        st.markdown("""
+        <div style="
+            text-align: center;
+            width: 100%;
+        ">
+            <div style="
+                font-weight: 600; 
+                color: #333;
+                font-size: 16px;
+                margin-bottom: 5px;
+            ">进击的测试圈</div>
+            <div style="
+                color: #666;
+                font-size: 14px;
+                margin-bottom: 8px;
+            ">微信公众号</div>
+            <div style="
+                color: #999;
+                font-size: 12px;
+                line-height: 1.4;
+            ">技术分享 | 测试开发</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    except Exception as e:
+        st.markdown("""
+        <div style="text-align: center; color: #666; width: 100%;">
+            <div style="font-size: 48px; margin-bottom: 15px;">💬</div>
+            <div style="font-size: 16px; font-weight: 600; margin-bottom: 5px;">进击的测试圈</div>
+            <div style="font-size: 14px; margin-bottom: 8px;">微信公众号</div>
+            <div style="font-size: 12px; color: #999;">技术分享 | 测试开发</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with col2:
+    # 作者信息卡片
+    st.markdown("""
+    <div style="
+        background: white; 
+        padding: 25px; 
+        border-radius: 12px; 
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        border: 1px solid #e0e0e0;
+        height: 100%;
+    ">
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="margin-bottom: 20px;">
+        <h3 style="color: #2d3748; margin-bottom: 8px; font-size: 22px;">Lucas</h3>
+        <div style="color: #718096; font-size: 14px; margin-bottom: 20px;">测试工程师 | 博客专家</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 联系信息
+    st.markdown("""
+    <div style="margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <span style="background: #edf2f7; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #4a5568; margin-right: 10px;">🌐</span>
+            <div>
+                <div style="font-weight: 600; color: #2d3748; font-size: 14px;">CSDN博客</div>
+                <a href="https://thundergod-lyx.blog.csdn.net" style="color: #667eea; text-decoration: none; font-size: 13px;">进击的雷神 - thundergod-lyx.blog.csdn.net</a>
+            </div>
+        </div>
+        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <span style="background: #edf2f7; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #4a5568; margin-right: 10px;">💬</span>
+            <div>
+                <div style="font-weight: 600; color: #2d3748; font-size: 14px;">微信公众号</div>
+                <div style="color: #718096; font-size: 13px;">进击的测试圈 - 技术分享与实战经验</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 技术栈
+    st.markdown("""
+    <div style="margin-bottom: 15px;">
+        <div style="font-weight: 600; color: #2d3748; margin-bottom: 8px; font-size: 14px;">技术专长</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <span style="background: #e6fffa; color: #234e52; padding: 4px 12px; border-radius: 15px; font-size: 12px;">Python</span>
+            <span style="background: #fff5f5; color: #742a2a; padding: 4px 12px; border-radius: 15px; font-size: 12px;">接口测试</span>
+            <span style="background: #f0fff4; color: #22543d; padding: 4px 12px; border-radius: 15px; font-size: 12px;">自动化测试</span>
+            <span style="background: #faf5ff; color: #44337a; padding: 4px 12px; border-radius: 15px; font-size: 12px;">性能测试</span>
+            <span style="background: #fffaf0; color: #744210; padding: 4px 12px; border-radius: 15px; font-size: 12px;">测试工具开发</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 个人简介
+    st.markdown("""
+    <div style="
+        background: #f7fafc; 
+        padding: 15px; 
+        border-radius: 8px; 
+        border-left: 4px solid #667eea;
+        font-size: 13px;
+        color: #4a5568;
+        line-height: 1.5;
+    ">
+    🚀 专注测试开发、自动化测试、性能测试等领域，分享实用的测试工具和开发经验。CSDN博客「进击的雷神」，微信公众号「进击的测试圈」。
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with col3:
+    # CSDN二维码卡片
+    st.markdown("""
+    <div style="
+        background: white; 
+        padding: 25px 20px; 
+        border-radius: 12px; 
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        border: 1px solid #e0e0e0;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    ">
+    """, unsafe_allow_html=True)
+
+    try:
+        # 使用项目相对路径
+        import os
+
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        csdn_qr_path = os.path.join(current_dir, "fonts", "csdn.jpg")
+
+        # 二维码图片容器
+        st.markdown("""
+        <div style="
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        ">
+        """, unsafe_allow_html=True)
+        st.image(csdn_qr_path, width=160)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # CSDN信息
+        st.markdown("""
+        <div style="
+            text-align: center;
+            width: 100%;
+        ">
+            <div style="
+                font-weight: 600; 
+                color: #333;
+                font-size: 16px;
+                margin-bottom: 5px;
+            ">进击的雷神</div>
+            <div style="
+                color: #666;
+                font-size: 14px;
+                margin-bottom: 8px;
+            ">CSDN博客</div>
+            <div style="
+                color: #999;
+                font-size: 12px;
+                line-height: 1.4;
+            ">技术博客 | 原创分享</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    except Exception as e:
+        st.markdown("""
+        <div style="text-align: center; color: #666; width: 100%;">
+            <div style="font-size: 48px; margin-bottom: 15px;">🌐</div>
+            <div style="font-size: 16px; font-weight: 600; margin-bottom: 5px;">进击的雷神</div>
+            <div style="font-size: 14px; margin-bottom: 8px;">CSDN博客</div>
+            <div style="font-size: 12px; color: #999;">技术博客 | 原创分享</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# 侧边栏作者信息
+with st.sidebar:
+    st.markdown("---")
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 15px;">
+        <h4 style="color: #2d3748; margin-bottom: 15px;">📱 关注作者</h4>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 微信公众号侧边栏卡片
+    st.markdown("""
+    <div style="
+        background: white; 
+        padding: 20px 15px; 
+        border-radius: 10px; 
+        box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 15px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    ">
+    """, unsafe_allow_html=True)
+
+    try:
+        # 微信公众号二维码
+        import os
+
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        wechat_qr_path = os.path.join(current_dir, "fonts", "qrcode.jpg")
+
+        st.markdown("""
+        <div style="
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 15px;
+        ">
+        """, unsafe_allow_html=True)
+        st.image(wechat_qr_path, width=100)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("""
+        <div style="
+            text-align: center;
+            width: 100%;
+        ">
+            <div style="font-size: 14px; color: #2d3748; font-weight: 600; margin-bottom: 5px;">进击的测试圈</div>
+            <div style="font-size: 12px; color: #718096; margin-bottom: 8px;">微信公众号</div>
+            <div style="font-size: 11px; color: #a0aec0; line-height: 1.3;">技术分享与实战经验</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    except Exception as e:
+        st.markdown("""
+        <div style="text-align: center; color: #666; width: 100%;">
+            <div style="font-size: 36px; margin-bottom: 10px;">💬</div>
+            <div style="font-size: 14px; font-weight: 600; margin-bottom: 5px;">进击的测试圈</div>
+            <div style="font-size: 12px; margin-bottom: 8px;">微信公众号</div>
+            <div style="font-size: 11px; color: #999;">技术分享与实战经验</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # CSDN侧边栏卡片
+    st.markdown("""
+    <div style="
+        background: white; 
+        padding: 20px 15px; 
+        border-radius: 10px; 
+        box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 15px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    ">
+    """, unsafe_allow_html=True)
+
+    try:
+        # CSDN二维码
+        import os
+
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        csdn_qr_path = os.path.join(current_dir, "fonts", "csdn.jpg")
+
+        st.markdown("""
+        <div style="
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 15px;
+        ">
+        """, unsafe_allow_html=True)
+        st.image(csdn_qr_path, width=100)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("""
+        <div style="
+            text-align: center;
+            width: 100%;
+        ">
+            <div style="font-size: 14px; color: #2d3748; font-weight: 600; margin-bottom: 5px;">进击的雷神</div>
+            <div style="font-size: 12px; color: #718096; margin-bottom: 8px;">CSDN博客</div>
+            <div style="font-size: 11px; color: #a0aec0; line-height: 1.3;">技术博客与原创分享</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    except Exception as e:
+        st.markdown("""
+        <div style="text-align: center; color: #666; width: 100%;">
+            <div style="font-size: 36px; margin-bottom: 10px;">🌐</div>
+            <div style="font-size: 14px; font-weight: 600; margin-bottom: 5px;">进击的雷神</div>
+            <div style="font-size: 12px; margin-bottom: 8px;">CSDN博客</div>
+            <div style="font-size: 11px; color: #999;">技术博客与原创分享</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # 侧边栏链接
+    st.markdown("""
+    <div style="
+        background: #f8fafc; 
+        padding: 15px; 
+        border-radius: 10px; 
+        border-left: 3px solid #667eea;
+    ">
+        <div style="font-size: 13px; color: #4a5568; margin-bottom: 8px;">📱 <strong>快速访问</strong></div>
+        <div style="font-size: 12px; color: #2d3748; margin-bottom: 5px; font-weight: 500;">CSDN博客</div>
+        <a href="https://thundergod-lyx.blog.csdn.net" style="
+            color: #667eea; 
+            text-decoration: none; 
+            font-size: 12px;
+            word-break: break-all;
+        ">thundergod-lyx.blog.csdn.net</a>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("---")
