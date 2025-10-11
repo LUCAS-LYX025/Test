@@ -5592,16 +5592,26 @@ with col1:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         wechat_qr_path = os.path.join(current_dir, "fonts", "qrcode.jpg")
 
-        # 二维码图片容器
+        # 二维码图片容器 - 优化显示
         st.markdown("""
         <div style="
             display: flex;
             justify-content: center;
             align-items: center;
             margin-bottom: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #f0f0f0;
         ">
         """, unsafe_allow_html=True)
-        st.image(wechat_qr_path, width=160)
+
+        # 使用正确的参数 - use_container_width
+        from PIL import Image
+
+        wechat_image = Image.open(wechat_qr_path)
+        st.image(wechat_image, use_container_width=True)
+
         st.markdown("</div>", unsafe_allow_html=True)
 
         # 微信公众号信息
@@ -5656,7 +5666,7 @@ with col2:
 
     st.markdown("""
     <div style="margin-bottom: 20px;">
-        <h3 style="color: #2d3748; margin-bottom: 8px; font-size: 22px;">Lucas</h3>
+        <h3 style="color: #2d3748; margin-bottom: 8px; font-size: 22px;">LUCAS</h3>
         <div style="color: #718096; font-size: 14px; margin-bottom: 20px;">测试工程师 | 博客专家</div>
     </div>
     """, unsafe_allow_html=True)
@@ -5707,7 +5717,6 @@ with col2:
         line-height: 1.5;
     ">
     🚀 专注测试开发、自动化测试、性能测试等领域，分享实用的测试工具和开发经验。CSDN博客「进击的雷神」，微信公众号「进击的测试圈」。
-    </div>
     """, unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
@@ -5736,16 +5745,26 @@ with col3:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         csdn_qr_path = os.path.join(current_dir, "fonts", "csdn.jpg")
 
-        # 二维码图片容器
+        # 二维码图片容器 - 优化显示
         st.markdown("""
         <div style="
             display: flex;
             justify-content: center;
             align-items: center;
             margin-bottom: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #f0f0f0;
         ">
         """, unsafe_allow_html=True)
-        st.image(csdn_qr_path, width=160)
+
+        # 使用正确的参数 - use_container_width
+        from PIL import Image
+
+        csdn_image = Image.open(csdn_qr_path)
+        st.image(csdn_image, use_container_width=True)
+
         st.markdown("</div>", unsafe_allow_html=True)
 
         # CSDN信息
@@ -5822,9 +5841,18 @@ with st.sidebar:
             justify-content: center;
             align-items: center;
             margin-bottom: 15px;
+            background: white;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #f0f0f0;
         ">
         """, unsafe_allow_html=True)
-        st.image(wechat_qr_path, width=100)
+
+        from PIL import Image
+
+        wechat_image = Image.open(wechat_qr_path)
+        st.image(wechat_image, use_container_width=True)
+
         st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown("""
@@ -5878,9 +5906,18 @@ with st.sidebar:
             justify-content: center;
             align-items: center;
             margin-bottom: 15px;
+            background: white;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #f0f0f0;
         ">
         """, unsafe_allow_html=True)
-        st.image(csdn_qr_path, width=100)
+
+        from PIL import Image
+
+        csdn_image = Image.open(csdn_qr_path)
+        st.image(csdn_image, use_container_width=True)
+
         st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown("""
