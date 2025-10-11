@@ -4850,43 +4850,92 @@ elif tool_category == "禅道绩效统计":
 
     # 数据库配置
     st.markdown("### 🔑 数据库配置")
+    import os
+    default_host = os.getenv('ZENTAO_DB_HOST', '')
+    default_port = int(os.getenv('ZENTAO_DB_PORT', '3306'))
+    default_user = os.getenv('ZENTAO_DB_USER', '')
+    default_password = os.getenv('ZENTAO_DB_PASSWORD', '')
+    default_database = os.getenv('ZENTAO_DB_NAME', 'zentao')
+
     col1, col2 = st.columns(2)
     with col1:
-        db_host = st.text_input("数据库地址", value="", key="zentao_db_host")
-        db_port = st.number_input("端口", value=3306, key="zentao_db_port")
-        db_user = st.text_input("用户名", value="", key="zentao_db_user")
+        db_host = st.text_input("数据库地址", value=default_host,
+                               placeholder="例如: mysql.server.com 或 123.45.67.89",
+                               key="zentao_perf_db_host")
+        db_port = st.number_input("端口", value=default_port, key="zentao_perf_db_port")
+        db_user = st.text_input("用户名", value=default_user, key="zentao_perf_db_user")
     with col2:
-        db_password = st.text_input("密码", type="password", value="", key="zentao_db_password")
-        db_name = st.text_input("数据库名", value="zentao", key="zentao_db_name")
+        db_password = st.text_input("密码", type="password", value=default_password,
+                                   placeholder="数据库密码", key="zentao_perf_db_password")
+        db_name = st.text_input("数据库名", value=default_database, key="zentao_perf_db_name")
 
-    # 测试数据库连接
-    if st.button("🔗 测试数据库连接", key="test_zentao_connection"):
-        if not all([db_host, db_user, db_password, db_name]):
-            st.error("请填写完整的数据库配置")
-        else:
-            try:
-                db_config = {
-                    'host': db_host,
-                    'port': int(db_port),
-                    'user': db_user,
-                    'password': db_password,
-                    'database': db_name,
-                    'charset': 'utf8mb4'
-                }
-                exporter = ZenTaoPerformanceExporter(db_config)
-                if exporter.mysql_db:
-                    products = exporter.get_products()
-                    roles = exporter.get_user_roles()
-                    bug_types = exporter.get_bug_types()
+        # 连接方式选择
+        connection_method = st.radio("连接方式",
+                                     ["直接连接", "连接字符串"],
+                                     horizontal=True,
+                                     help="直接连接适用于可公开访问的数据库，连接字符串更安全")
 
-                    st.success(f"✅ 数据库连接成功！")
-                    st.info(f"发现 {len(products)} 个产品, {len(roles)} 种角色, {len(bug_types)} 种缺陷类型")
-                    exporter.close_connection()
-                else:
-                    st.error("❌ 数据库连接失败")
-            except Exception as e:
-                st.error(f"❌ 数据库连接失败: {str(e)}")
+        if connection_method == "连接字符串":
+            connection_string = st.text_input(
+                "数据库连接字符串",
+                placeholder="例如: mysql://username:password@host:port/database",
+                help="格式: mysql://用户名:密码@主机:端口/数据库名"
+            )
 
+            if connection_string:
+                try:
+                    # 解析连接字符串
+                    if connection_string.startswith('mysql://'):
+                        parts = connection_string[8:].split('@')
+                        user_pass = parts[0].split(':')
+                        host_db = parts[1].split('/')
+                        host_port = host_db[0].split(':')
+
+                        db_user = user_pass[0]
+                        db_password = user_pass[1] if len(user_pass) > 1 else ''
+                        db_host = host_port[0]
+                        db_port = int(host_port[1]) if len(host_port) > 1 else 3306
+                        db_name = host_db[1] if len(host_db) > 1 else 'zentao'
+                except Exception as e:
+                    st.error(f"连接字符串格式错误: {e}")
+
+        # 测试数据库连接
+        if st.button("🔗 测试数据库连接", key="test_zentao_perf_connection"):
+            if not all([db_host, db_user, db_password, db_name]):
+                st.error("请填写完整的数据库配置")
+            else:
+                try:
+                    db_config = {
+                        'host': db_host,
+                        'port': int(db_port),
+                        'user': db_user,
+                        'password': db_password,
+                        'database': db_name,
+                        'charset': 'utf8mb4',
+                        'connect_timeout': 10  # 增加超时时间
+                    }
+
+                    with st.spinner("正在连接数据库..."):
+                        exporter = ZenTaoPerformanceExporter(db_config)
+                        if exporter.mysql_db:
+                            products = exporter.get_products()
+                            roles = exporter.get_user_roles()
+                            bug_types = exporter.get_bug_types()
+
+                            st.success(f"✅ 数据库连接成功！")
+                            st.info(f"发现 {len(products)} 个产品, {len(roles)} 种角色, {len(bug_types)} 种缺陷类型")
+                            exporter.close_connection()
+                        else:
+                            st.error("❌ 数据库连接失败")
+                except Exception as e:
+                    st.error(f"❌ 数据库连接失败: {str(e)}")
+                    st.info("💡 **解决方案建议:**")
+                    st.markdown("""
+                    1. **使用云数据库**: 将禅道数据库迁移到云数据库服务
+                    2. **配置公网访问**: 让数据库服务器支持公网访问
+                    3. **使用连接隧道**: 通过SSH或VPN连接内网数据库
+                    4. **检查防火墙**: 确保数据库端口对外开放
+                    """)
     st.markdown("---")
 
     # 统计配置
