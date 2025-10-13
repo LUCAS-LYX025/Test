@@ -58,6 +58,69 @@ class AuthorProfile:
             animation: gradientShift 8s ease infinite;
         }
 
+        /* 链接悬停效果 */
+        .sidebar-link {
+            color: #1a202c; 
+            text-decoration: none; 
+            font-size: 12px;
+            word-break: break-all;
+            font-weight: 500;
+            background: rgba(255,255,255,0.8);
+            padding: 8px 12px;
+            border-radius: 8px;
+            display: block;
+            text-align: center;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.5);
+            margin-bottom: 10px;
+        }
+
+        .sidebar-link:hover {
+            background: rgba(255,255,255,0.9);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .sidebar-link-small {
+            color: #1a202c; 
+            text-decoration: none; 
+            font-size: 11px;
+            word-break: break-all;
+            font-weight: 500;
+            background: rgba(255,255,255,0.8);
+            padding: 6px 10px;
+            border-radius: 6px;
+            display: block;
+            text-align: center;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.5);
+            margin-bottom: 8px;
+        }
+
+        .sidebar-link-small:hover {
+            background: rgba(255,255,255,0.9);
+            transform: translateY(-2px);
+        }
+
+        /* 按钮样式 */
+        .wechat-btn {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 4px 10px;
+            background: rgba(255,255,255,0.8);
+            color: #2d3748;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+
+        .wechat-btn:hover {
+            background: rgba(255,255,255,0.9);
+        }
+
         /* 侧边栏隐藏按钮样式 */
         .sidebar-toggle {
             position: fixed;
@@ -98,6 +161,9 @@ class AuthorProfile:
             "bio": "专注测试开发、自动化测试、性能测试等领域，分享实用的测试工具和开发经验。CSDN博客「进击的雷神」，微信公众号「进击的测试圈」，持续输出高质量技术内容。",
             "csdn_url": "https://thundergod-lyx.blog.csdn.net",
             "wechat_public": "进击的测试圈",
+            "wechat_url": "https://mp.weixin.qq.com/mp/appmsgalbum?__biz=Mzg5Mzk3MTcwOQ==&action=getalbum&album_id=3163113351812644865#wechat_redirect",
+            "gitcode_url": "https://gitcode.net/LYX_WIN",
+            "github_url": "https://github.com/LUCAS-LYX025",
             "skills": ["Python", "接口测试", "自动化测试", "性能测试", "测试工具开发"]
         }
 
@@ -249,7 +315,7 @@ class AuthorProfile:
             <span style="background: #667eea; padding: 8px; border-radius: 50%; font-size: 16px; color: white; margin-right: 15px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">🌐</span>
             <div style="flex: 1;">
                 <div style="font-weight: 600; color: #2d3748; font-size: 15px; margin-bottom: 4px;">CSDN博客</div>
-                <a href="{self.author_info['csdn_url']}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">进击的雷神 - thundergod-lyx.blog.csdn.net</a>
+                <a href="{self.author_info['csdn_url']}" target="_blank" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">进击的雷神 - thundergod-lyx.blog.csdn.net</a>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -260,6 +326,21 @@ class AuthorProfile:
             <div style="flex: 1;">
                 <div style="font-weight: 600; color: #2d3748; font-size: 15px; margin-bottom: 4px;">微信公众号</div>
                 <div style="color: #718096; font-size: 14px; font-weight: 500;">{self.author_info['wechat_public']} - 技术分享与实战经验</div>
+                <a href="{self.author_info['wechat_url']}" target="_blank" style="color: #667eea; text-decoration: none; font-size: 12px; font-weight: 500;">访问公众号文章 →</a>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 代码仓库信息
+        st.markdown(f"""
+        <div style="display: flex; align-items: center; margin-bottom: 15px; padding: 12px; background: linear-gradient(135deg, #f0fff4, #e6fffa); border-radius: 12px; border-left: 4px solid #48bb78;">
+            <span style="background: #48bb78; padding: 8px; border-radius: 50%; font-size: 16px; color: white; margin-right: 15px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">💻</span>
+            <div style="flex: 1;">
+                <div style="font-weight: 600; color: #2d3748; font-size: 15px; margin-bottom: 4px;">代码仓库</div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <a href="{self.author_info['gitcode_url']}" target="_blank" style="color: #667eea; text-decoration: none; font-size: 13px; font-weight: 500;">📦 GitCode: {self.author_info['gitcode_url'].split('//')[1]}</a>
+                    <a href="{self.author_info['github_url']}" target="_blank" style="color: #667eea; text-decoration: none; font-size: 13px; font-weight: 500;">🐙 GitHub: {self.author_info['github_url'].split('//')[1]}</a>
+                </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -453,6 +534,9 @@ class AuthorProfile:
             <div style="font-size: 16px; color: #1a202c; font-weight: 700; margin-bottom: 6px;">💬 {self.author_info['wechat_public']}</div>
             <div style="font-size: 13px; color: #2d3748; margin-bottom: 8px; font-weight: 600;">微信公众号</div>
             <div style="font-size: 11px; color: #4a5568; line-height: 1.4; padding: 0 10px;">技术分享 | 测试开发 | 实战经验</div>
+            <a href="{self.author_info['wechat_url']}" target="_blank" class="wechat-btn">
+                访问文章
+            </a>
         </div>
         """, unsafe_allow_html=True)
         st.markdown("</div></div>", unsafe_allow_html=True)
@@ -546,8 +630,6 @@ class AuthorProfile:
             </div>
         </div>
         """, unsafe_allow_html=True)
-
-
 
 # 使用示例
 def main():
