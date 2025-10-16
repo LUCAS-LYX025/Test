@@ -1,0 +1,516 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>接口自动化测试报告</title>
+    <meta name="generator" content="InterfaceAutoTestTool"/>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+
+<style type="text/css" media="screen">
+body        { font-family: verdana, arial, helvetica, sans-serif; font-size: 80%; }
+table       { font-size: 100%; }
+pre         { white-space: pre-wrap;word-wrap: break-word; }
+/* -- heading ---------------------------------------------------------------------- */
+h1 {
+    font-size: 16pt;
+    color: gray;
+}
+.heading {
+    margin-top: 0ex;
+    margin-bottom: 1ex;
+}
+.heading .attribute {
+    margin-top: 1ex;
+    margin-bottom: 0;
+}
+.heading .description {
+    margin-top: 2ex;
+    margin-bottom: 3ex;
+}
+.button{  
+    border:1px solid #cccccc;  
+    cursor:pointer;  
+    margin:10px 5px;  
+    height:40px;  
+    text-align:center;  
+    border-radius: 4px;  
+    border-color: #636263 #464647 #A1A3A5;  
+    text-shadow: 0 1px 1px #F6F6F6;  
+    background-image: -moz-linear-gradient(center top, #D9D9D9, #A6A6A6 49%, #A6A6A6 50%);  
+    background-image: -webkit-gradient(linear, left top, left bottom, color-stop(0, #D9D9D9),color-stop(1, #A6A6A6));  
+}  
+.buttonText{  
+    position:relative;  
+    font-weight:bold;  
+    top:10px;
+    color: #58595B;  
+}   
+/* -- report ------------------------------------------------------------------------ */
+#show_detail_line {
+    margin-top: 3ex;
+    margin-bottom: 1ex;
+}
+#result_table {
+    width: 99%;
+    border-collapse: collapse;
+}
+#header_row {
+    font-weight: bold;
+    color: white;
+    background-color: #777;
+}
+#total_row  { font-weight: bold; }
+.passClass  { background-color: #74A474; }
+.failClass  { background-color: #FDD283; }
+.errorClass { background-color: #FF6600; }
+.passCase   { color: #6c6; }
+.failCase   { color: #FF6600; font-weight: bold; }
+.errorCase  { color: #c00; font-weight: bold; }
+.hiddenRow  { display: none; }
+.testcase   { margin-left: 2em; }
+
+/* -- css div popup ------------------------------------------------------------------------ */
+a.popup_link {
+}
+a.popup_link:hover {
+    color: red;
+}
+.popup_window {
+    display: none;
+    position: relative;
+    left: 0px;
+    top: 0px;
+    padding: 10px;
+    background-color: #E6E6D6;
+    font-family: "Lucida Console", "Courier New", Courier, monospace;
+    text-align: left;
+    font-size: 8pt;
+    width: 500px;
+}
+.interface-method {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+}
+.method-get { background-color: #28a745; }
+.method-post { background-color: #007bff; }
+.method-put { background-color: #ffc107; color: black; }
+.method-delete { background-color: #dc3545; }
+.method-patch { background-color: #6f42c1; }
+
+.stats-card {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin: 10px 0;
+}
+.stats-number {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 5px 0;
+}
+.stats-label {
+    font-size: 14px;
+    color: #666;
+}
+
+/* 图表样式 */
+.chart-container {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin: 20px 0;
+}
+.chart-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    color: #333;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 5px;
+}
+.chart-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+.chart-item {
+    flex: 1;
+    margin: 0 10px;
+    text-align: center;
+}
+.chart-canvas {
+    max-width: 100%;
+    height: 200px;
+}
+.legend {
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin: 0 10px;
+}
+.legend-color {
+    width: 15px;
+    height: 15px;
+    border-radius: 3px;
+    margin-right: 5px;
+}
+</style>
+
+<link href="https://cdn.bootcss.com/bootstrap/3.3.0/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container">
+    <div class='heading'>
+        <h1>🚀 接口自动化测试报告</h1>
+        <p class='attribute'><strong>开始时间:</strong> 2025-10-16 11:02:33</p>
+        <p class='attribute'><strong>运行时长:</strong> 0.78 秒</p>
+        <p class='attribute'><strong>测试框架:</strong> unittest</p>
+        <p class='attribute'><strong>状态:</strong> 
+            <span style="color: #28a745;">通过 0</span> | 
+            <span style="color: #ffc107;">失败 1</span> | 
+            <span style="color: #dc3545;">错误 0</span>
+        </p>
+    </div>
+
+    <!-- 统计信息卡片 -->
+    <div class="row">
+        <div class="col-md-3">
+            <div class="stats-card" style="border-left: 4px solid #007bff;">
+                <div class="stats-number">1</div>
+                <div class="stats-label">总用例数</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="border-left: 4px solid #28a745;">
+                <div class="stats-number" style="color: #28a745;">0</div>
+                <div class="stats-label">通过</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="border-left: 4px solid #ffc107;">
+                <div class="stats-number" style="color: #ffc107;">1</div>
+                <div class="stats-label">失败</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="border-left: 4px solid #dc3545;">
+                <div class="stats-number" style="color: #dc3545;">0</div>
+                <div class="stats-label">错误</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图表展示 -->
+    
+    <!-- 图表展示 -->
+    <div class="chart-container">
+        <div class="chart-title">📊 测试结果图表分析</div>
+
+        <div class="chart-row">
+            <div class="chart-item">
+                <div style="font-weight: bold; margin-bottom: 10px;">饼状图分布</div>
+                <canvas id="pieChart" width="250" height="200" class="chart-canvas"></canvas>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #28a745;"></div>
+                        <span>通过: 0</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #ffc107;"></div>
+                        <span>失败: 1</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #dc3545;"></div>
+                        <span>错误: 0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-item">
+                <div style="font-weight: bold; margin-bottom: 10px;">柱状图对比</div>
+                <canvas id="barChart" width="250" height="200" class="chart-canvas"></canvas>
+            </div>
+
+            <div class="chart-item">
+                <div style="font-weight: bold; margin-bottom: 10px;">成功率仪表盘</div>
+                <canvas id="statusChart" width="250" height="200" class="chart-canvas"></canvas>
+                <div style="margin-top: 10px; font-size: 14px; color: #666;">
+                    总用例数: 1<br>
+                    通过率: 0.0%
+                </div>
+            </div>
+        </div>
+    </div>
+    
+
+    <div class="btn-group btn-group-sm">
+        <button class="btn btn-default" onclick='javascript:showCase(0)'><strong>总结</strong></button>
+        <button class="btn btn-default" onclick='javascript:showCase(1)'><strong>通过</strong></button>
+        <button class="btn btn-default" onclick='javascript:showCase(2)'><strong>失败</strong></button>
+        <button class="btn btn-default" onclick='javascript:showCase(3)'><strong>错误</strong></button>
+        <button class="btn btn-default" onclick='javascript:showCase(4)'><strong>全部</strong></button>
+    </div>
+
+    <table id='result_table' class="table table-bordered">
+        <tr id='header_row'>
+            <td>测试接口</td>
+            <td>方法</td>
+            <td>路径</td>
+            <td>状态</td>
+            <td>响应时间</td>
+            <td>状态码</td>
+            <td>详情</td>
+        </tr>
+
+        
+            <tr id='Ft1' class='failCase'>
+                <td>用户登录</td>
+                <td><span class="interface-method method-post">POST</span></td>
+                <td>/api/login</td>
+                <td class='failCase'>❌ 失败</td>
+                <td>0.78s</td>
+                <td>404</td>
+                <td>
+                    <a class="popup_link" onfocus='this.blur();' href="javascript:showTestDetail('div_Ft1')">
+                        详情
+                    </a>
+                    <div id='div_Ft1' class="popup_window">
+                        <div style='text-align: right; color:red;cursor:pointer'>
+                            <a onfocus='this.blur();' onclick="document.getElementById('div_Ft1').style.display = 'none'">[x]</a>
+                        </div>
+                        <pre>
+接口名称: 用户登录
+请求方法: POST
+请求路径: /api/login
+测试状态: failed
+响应时间: 0.78秒
+状态码: 404
+
+=== 请求信息 ===
+请求头:
+  Content-Type: application/json
+请求参数:
+  {
+  "username": "test",
+  "password": "123456"
+}
+
+=== 响应信息 ===
+响应体:
+{}
+
+=== 错误信息 ===
+断言失败
+
+=== 断言结果 ===
+❌ 状态码应为200
+   错误: 期望200，实际404
+❌ 响应应包含字段: code
+   错误: 字段code 不存在
+❌ 响应应包含字段: message
+   错误: 字段message 不存在
+                        </pre>
+                    </div>
+                </td>
+            </tr>
+            
+
+        <tr id='total_row'>
+            <td colspan="4">总计</td>
+            <td>0.78s</td>
+            <td>通过率: 0.0%</td>
+            <td>0/1</td>
+        </tr>
+    </table>
+
+    
+        <div class="panel panel-danger">
+            <div class="panel-heading">
+                <h3 class="panel-title">❌ 失败和错误详情</h3>
+            </div>
+            <div class="panel-body">
+        
+            <div class="alert alert-warning">
+                <h5>1. 用户登录</h5>
+                <p><strong>方法:</strong> POST | <strong>路径:</strong> /api/login</p>
+                <p><strong>状态码:</strong> 404 | <strong>响应时间:</strong> 0.78s</p>
+                <p><strong>错误信息:</strong> 断言失败</p>
+                <button class="btn btn-sm btn-default" onclick="document.getElementById('error_detail_0').style.display = 'block'">
+                    查看完整错误详情
+                </button>
+                <div id="error_detail_0" style="display: none; margin-top: 10px;">
+                    <pre>断言失败</pre>
+                </div>
+            </div>
+            
+            </div>
+        </div>
+        
+
+</div>
+
+<script language="javascript" type="text/javascript">
+// 筛选显示测试用例
+function showCase(level) {
+    trs = document.getElementsByTagName("tr");
+    for (var i = 0; i < trs.length; i++) {
+        tr = trs[i];
+        id = tr.id;
+        if (id.substr(0,2) == 'Ft') {
+            if (level == 2 || level == 4) {
+                tr.className = '';
+            } else {
+                tr.className = 'hiddenRow';
+            }
+        }
+        if (id.substr(0,2) == 'Pt') {
+            if (level == 1 || level == 4) {
+                tr.className = '';
+            } else {
+                tr.className = 'hiddenRow';
+            }
+        }
+        if (id.substr(0,2) == 'Et') {
+            if (level == 3 || level == 4) {
+                tr.className = '';
+            } else {
+                tr.className = 'hiddenRow';
+            }
+        }
+    }
+}
+
+// 显示测试详情
+function showTestDetail(div_id){
+    var details_div = document.getElementById(div_id)
+    var displayState = details_div.style.display
+    if (displayState != 'block' ) {
+        displayState = 'block'
+        details_div.style.display = 'block'
+    } else {
+        details_div.style.display = 'none'
+    }
+}
+
+// 图表绘制函数
+function drawPieChart() {
+    var canvas = document.getElementById('pieChart');
+    var ctx = canvas.getContext('2d');
+    var centerX = canvas.width / 2;
+    var centerY = canvas.height / 2;
+    var radius = Math.min(centerX, centerY) - 10;
+
+    var data = [0, 1, 0];
+    var colors = ['#28a745', '#ffc107', '#dc3545'];
+    var total = data.reduce((a, b) => a + b, 0);
+
+    var startAngle = 0;
+    for (var i = 0; i < data.length; i++) {
+        var sliceAngle = 2 * Math.PI * data[i] / total;
+
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+        ctx.lineTo(centerX, centerY);
+        ctx.fillStyle = colors[i];
+        ctx.fill();
+
+        startAngle += sliceAngle;
+    }
+}
+
+function drawBarChart() {
+    var canvas = document.getElementById('barChart');
+    var ctx = canvas.getContext('2d');
+    var width = canvas.width;
+    var height = canvas.height;
+
+    var data = [0, 1, 0];
+    var colors = ['#28a745', '#ffc107', '#dc3545'];
+    var labels = ['通过', '失败', '错误'];
+    var maxData = Math.max(...data);
+
+    var barWidth = 60;
+    var barSpacing = 30;
+    var startX = 50;
+    var chartHeight = height - 60;
+
+    // 绘制坐标轴
+    ctx.beginPath();
+    ctx.moveTo(30, 20);
+    ctx.lineTo(30, chartHeight);
+    ctx.lineTo(width - 20, chartHeight);
+    ctx.strokeStyle = '#333';
+    ctx.stroke();
+
+    // 绘制柱状图
+    for (var i = 0; i < data.length; i++) {
+        var barHeight = (data[i] / maxData) * (chartHeight - 40);
+        var x = startX + i * (barWidth + barSpacing);
+        var y = chartHeight - barHeight;
+
+        ctx.fillStyle = colors[i];
+        ctx.fillRect(x, y, barWidth, barHeight);
+
+        // 绘制数值
+        ctx.fillStyle = '#333';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(data[i], x + barWidth / 2, y - 5);
+
+        // 绘制标签
+        ctx.fillText(labels[i], x + barWidth / 2, chartHeight + 15);
+    }
+}
+
+function drawStatusChart() {
+    var canvas = document.getElementById('statusChart');
+    var ctx = canvas.getContext('2d');
+    var width = canvas.width;
+    var height = canvas.height;
+
+    var successRate = 0.0;
+
+    // 绘制背景圆
+    ctx.beginPath();
+    ctx.arc(width / 2, height / 2, 50, 0, 2 * Math.PI);
+    ctx.strokeStyle = '#e9ecef';
+    ctx.lineWidth = 15;
+    ctx.stroke();
+
+    // 绘制成功率圆弧
+    var endAngle = 2 * Math.PI * successRate / 100;
+    ctx.beginPath();
+    ctx.arc(width / 2, height / 2, 50, -Math.PI / 2, -Math.PI / 2 + endAngle);
+    ctx.strokeStyle = successRate >= 80 ? '#28a745' : (successRate >= 60 ? '#ffc107' : '#dc3545');
+    ctx.lineWidth = 15;
+    ctx.stroke();
+
+    // 绘制中心文字
+    ctx.fillStyle = '#333';
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(successRate.toFixed(1) + '%', width / 2, height / 2);
+
+    ctx.font = '12px Arial';
+    ctx.fillText('成功率', width / 2, height / 2 + 20);
+}
+
+// 页面加载时绘制图表
+window.onload = function() {
+    drawPieChart();
+    drawBarChart();
+    drawStatusChart();
+};
+</script>
+</body>
+</html>

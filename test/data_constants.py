@@ -630,6 +630,10 @@ TOOL_CATEGORIES = {
         "icon": "📈",
         "description": "禅道数据统计、绩效分析、报告生成",
         "color": "#4CAF50"
+    },
+    "接口自动化测试": {
+        "icon": "🚀",
+        "description": "基于接口文档自动生成和执行测试用例"
     }
 }
 
