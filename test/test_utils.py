@@ -18,6 +18,7 @@ import io
 import os
 
 from author_profile import AuthorProfile
+from log_analyzer_utils import LogAnalyzerUtils
 from zendao import ZenTaoPerformanceExporter
 # 在已有的导入后面添加
 from interface_auto_test import InterfaceAutoTestCore
@@ -111,48 +112,6 @@ def generate_regex_from_examples(text, examples):
             return escaped_pattern + r"[A-Za-z]+"
 
     return escaped_pattern + ".*"
-
-
-# 过滤辅助函数
-def _apply_text_filters(line, log_levels, ip_filter, status_codes, show_only_errors, hide_debug):
-    """应用文本过滤器"""
-    include_line = True
-
-    # 日志级别过滤
-    if log_levels:
-        level_match = False
-        if "错误" in log_levels and any(word in line.upper() for word in ['ERROR', 'ERR']):
-            level_match = True
-        if "警告" in log_levels and any(word in line.upper() for word in ['WARN', 'WARNING']):
-            level_match = True
-        if "信息" in log_levels and any(word in line.upper() for word in ['INFO', 'INFORMATION']):
-            level_match = True
-        if "调试" in log_levels and any(word in line.upper() for word in ['DEBUG', 'DBG']):
-            level_match = True
-        include_line = include_line and level_match
-
-    # IP地址过滤
-    if ip_filter and include_line:
-        if ip_filter not in line:
-            include_line = False
-
-    # 状态码过滤
-    if status_codes and include_line:
-        codes = [code.strip() for code in status_codes.split(',')]
-        code_match = any(f" {code} " in line or line.endswith(f" {code}") or f" {code}" in line for code in codes)
-        include_line = include_line and code_match
-
-    # 其他条件
-    if show_only_errors and include_line:
-        if not any(word in line.upper() for word in ['ERROR', 'ERR', 'FAIL', 'EXCEPTION']):
-            include_line = False
-
-    if hide_debug and include_line:
-        if any(word in line.upper() for word in ['DEBUG', 'DBG']):
-            include_line = False
-
-    return include_line
-
 
 def escape_js_string(text):
     """安全转义 JavaScript 字符串"""
@@ -2169,8 +2128,10 @@ elif tool_category == "JSON处理工具":
                     st.warning("❌ 未找到匹配项")
 
 # 日志分析工具
+
 elif tool_category == "日志分析工具":
     show_doc("log_analyzer")
+    utils = LogAnalyzerUtils()
 
     # 初始化所有session_state变量
     if 'log_data' not in st.session_state:
@@ -2239,7 +2200,7 @@ elif tool_category == "日志分析工具":
 
                         df = pd.read_csv(uploaded_file)
                         st.write("前10行数据预览:")
-                        st.dataframe(df.head(preview_lines))
+                        st.dataframe(df.head(preview_lines), use_container_width=True)
 
                         # 保存DataFrame和列信息
                         st.session_state.df = df
@@ -2576,30 +2537,88 @@ elif tool_category == "日志分析工具":
                         # 转换为文本行并应用文本过滤
                         for _, row in filtered_df.iterrows():
                             line = " | ".join([str(x) for x in row])
-                            if _apply_text_filters(line, log_levels, ip_filter, status_codes, show_only_errors,
-                                                   hide_debug):
+                            if utils.apply_text_filters(line, log_levels, ip_filter, status_codes, show_only_errors,
+                                                        hide_debug):
                                 filtered_lines.append(line)
                     else:
                         # 文本数据过滤
                         for line in lines:
-                            if _apply_text_filters(line, log_levels, ip_filter, status_codes, show_only_errors,
-                                                   hide_debug):
+                            if utils.apply_text_filters(line, log_levels, ip_filter, status_codes, show_only_errors,
+                                                        hide_debug):
                                 filtered_lines.append(line)
 
                     st.session_state.filtered_lines = filtered_lines
                     st.success(f"过滤完成，找到 {len(filtered_lines)} 行日志")
 
-            # 显示过滤结果
+            # 显示过滤结果 - 保持与原始数据格式一致
             if st.session_state.filtered_lines:
-                st.subheader(f"过滤结果 (共 {len(st.session_state.filtered_lines)} 行)")
-                st.text_area("过滤后的日志", "\n".join(st.session_state.filtered_lines), height=400, key="filtered_output")
+                st.subheader(f"📋 过滤结果 (共 {len(st.session_state.filtered_lines)} 行)")
 
-                # 导出结果
+                # 根据文件类型选择显示方式
+                if st.session_state.is_csv and st.session_state.df is not None:
+                    # 对于CSV文件，显示DataFrame格式
+                    import pandas as pd
+
+                    # 重新构建过滤后的DataFrame用于显示
+                    filtered_indices = []
+                    for i, line in enumerate(lines):
+                        if line in st.session_state.filtered_lines:
+                            filtered_indices.append(i)
+
+                    if filtered_indices:
+                        filtered_df_display = st.session_state.df.iloc[filtered_indices]
+                        st.dataframe(filtered_df_display, use_container_width=True, height=400)
+                    else:
+                        # 如果无法匹配索引，回退到文本显示
+                        st.text_area("过滤后的日志", "\n".join(st.session_state.filtered_lines), height=400,
+                                     key="filtered_output")
+                else:
+                    # 对于文本文件，保持原始文本格式
+                    st.text_area("过滤后的日志", "\n".join(st.session_state.filtered_lines), height=400,
+                                 key="filtered_output")
+
+                # 显示统计信息
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("总行数", len(st.session_state.filtered_lines))
+                with col2:
+                    error_count = sum(1 for line in st.session_state.filtered_lines if
+                                      any(word in line.upper() for word in ['ERROR', 'ERR']))
+                    st.metric("错误数", error_count)
+                with col3:
+                    warn_count = sum(1 for line in st.session_state.filtered_lines if
+                                     any(word in line.upper() for word in ['WARN', 'WARNING']))
+                    st.metric("警告数", warn_count)
+
+                # 导出结果 - 保持原始数据格式
+                export_data = ""
+                if st.session_state.is_csv and st.session_state.df is not None:
+                    # 对于CSV文件，导出为CSV格式
+                    import io
+
+                    csv_buffer = io.StringIO()
+                    filtered_indices = []
+                    for i, line in enumerate(lines):
+                        if line in st.session_state.filtered_lines:
+                            filtered_indices.append(i)
+
+                    if filtered_indices:
+                        filtered_df_display = st.session_state.df.iloc[filtered_indices]
+                        filtered_df_display.to_csv(csv_buffer, index=False)
+                        export_data = csv_buffer.getvalue()
+                    else:
+                        export_data = "\n".join(st.session_state.filtered_lines)
+                    file_extension = "csv"
+                else:
+                    # 对于文本文件，导出为文本格式
+                    export_data = "\n".join(st.session_state.filtered_lines)
+                    file_extension = "txt"
+
                 st.download_button(
-                    label="导出过滤结果",
-                    data="\n".join(st.session_state.filtered_lines),
-                    file_name=f"filtered_logs_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain",
+                    label="📥 导出过滤结果",
+                    data=export_data,
+                    file_name=f"filtered_logs_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.{file_extension}",
+                    mime="text/csv" if file_extension == "csv" else "text/plain",
                     use_container_width=True
                 )
             else:
@@ -2607,7 +2626,7 @@ elif tool_category == "日志分析工具":
 
         # Tab3: 关键词搜索
         with tab3:
-            st.header("关键词搜索")
+            st.header("🔍 关键词搜索")
 
             # 处理清空搜索条件
             if st.session_state.search_cleared:
@@ -2706,24 +2725,81 @@ elif tool_category == "日志分析工具":
                     st.success("搜索条件已清空！")
                     st.rerun()
 
-            # 显示搜索结果
+            # 显示搜索结果 - 保持与原始数据格式一致
             if st.session_state.search_results:
-                st.subheader(f"搜索结果 (共 {len(st.session_state.search_results)} 条)")
+                st.subheader(f"📊 搜索结果 (共 {len(st.session_state.search_results)} 条)")
 
-                # 显示搜索结果
-                result_text = "\n".join(st.session_state.search_results)
-                st.text_area("搜索结果", result_text, height=400, key="search_output")
+                # 根据文件类型选择显示方式
+                if st.session_state.is_csv and st.session_state.df is not None:
+                    # 对于CSV文件，显示DataFrame格式
+                    import pandas as pd
 
-                # 导出搜索结果
+                    # 重新构建搜索结果的DataFrame用于显示
+                    search_indices = []
+                    for i, line in enumerate(lines):
+                        if line in st.session_state.search_results:
+                            search_indices.append(i)
+
+                    if search_indices:
+                        search_df_display = st.session_state.df.iloc[search_indices]
+                        st.dataframe(search_df_display, use_container_width=True, height=400)
+                    else:
+                        # 如果无法匹配索引，回退到文本显示
+                        st.text_area("搜索结果", "\n".join(st.session_state.search_results), height=400,
+                                     key="search_output")
+                else:
+                    # 对于文本文件，保持原始文本格式
+                    st.text_area("搜索结果", "\n".join(st.session_state.search_results), height=400, key="search_output")
+
+                # 搜索统计信息
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("总匹配数", len(st.session_state.search_results))
+                with col2:
+                    unique_lines = len(set(st.session_state.search_results))
+                    st.metric("唯一行数", unique_lines)
+                with col3:
+                    avg_length = sum(len(line) for line in st.session_state.search_results) // len(
+                        st.session_state.search_results) if st.session_state.search_results else 0
+                    st.metric("平均长度", f"{avg_length} 字符")
+                with col4:
+                    error_matches = sum(1 for line in st.session_state.search_results if
+                                        any(word in line.upper() for word in ['ERROR', 'ERR']))
+                    st.metric("错误匹配", error_matches)
+
+                # 导出搜索结果 - 保持原始数据格式
+                export_search_data = ""
+                if st.session_state.is_csv and st.session_state.df is not None:
+                    # 对于CSV文件，导出为CSV格式
+                    import io
+
+                    csv_buffer = io.StringIO()
+                    search_indices = []
+                    for i, line in enumerate(lines):
+                        if line in st.session_state.search_results:
+                            search_indices.append(i)
+
+                    if search_indices:
+                        search_df_display = st.session_state.df.iloc[search_indices]
+                        search_df_display.to_csv(csv_buffer, index=False)
+                        export_search_data = csv_buffer.getvalue()
+                    else:
+                        export_search_data = "\n".join(st.session_state.search_results)
+                    file_extension = "csv"
+                else:
+                    # 对于文本文件，导出为文本格式
+                    export_search_data = "\n".join(st.session_state.search_results)
+                    file_extension = "txt"
+
                 st.download_button(
-                    label="导出搜索结果",
-                    data=result_text,
-                    file_name=f"search_results_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain",
+                    label="📥 导出搜索结果",
+                    data=export_search_data,
+                    file_name=f"search_results_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.{file_extension}",
+                    mime="text/csv" if file_extension == "csv" else "text/plain",
                     use_container_width=True
                 )
             elif st.session_state.search_count == 0 and st.session_state.search_keyword:
-                st.info("暂无搜索结果")
+                st.info("🔍 暂无搜索结果，请尝试其他关键词")
 
     else:
         st.info("请先导入日志数据以开始分析")
@@ -4694,7 +4770,7 @@ elif tool_category == "测试用例生成器":
             validation_errors.append("请输入OpenAI API Key")
         elif platform == "baidu" and (not api_config.get("api_key") or not api_config.get("secret_key")):
             validation_errors.append("请输入百度文心一言的API Key和Secret Key")
-        elif  platform == "spark" and not api_config.get("api_key"):
+        elif platform == "spark" and not api_config.get("api_key"):
             validation_errors.append("请输入讯飞星火的API Key和App ID")
         elif platform == "glm" and not api_config.get("api_key"):
             validation_errors.append("请输入智谱ChatGLM API Key")
@@ -4858,6 +4934,7 @@ elif tool_category == "禅道绩效统计":
     # 数据库配置
     st.markdown("### 🔑 数据库配置")
     import os
+
     default_host = os.getenv('ZENTAO_DB_HOST', '')
     default_port = int(os.getenv('ZENTAO_DB_PORT', '3306'))
     default_user = os.getenv('ZENTAO_DB_USER', '')
@@ -4867,13 +4944,13 @@ elif tool_category == "禅道绩效统计":
     col1, col2 = st.columns(2)
     with col1:
         db_host = st.text_input("数据库地址", value=default_host,
-                               placeholder="例如: mysql.server.com 或 123.45.67.89",
-                               key="zentao_perf_db_host")
+                                placeholder="例如: mysql.server.com 或 123.45.67.89",
+                                key="zentao_perf_db_host")
         db_port = st.number_input("端口", value=default_port, key="zentao_perf_db_port")
         db_user = st.text_input("用户名", value=default_user, key="zentao_perf_db_user")
     with col2:
         db_password = st.text_input("密码", type="password", value=default_password,
-                                   placeholder="数据库密码", key="zentao_perf_db_password")
+                                    placeholder="数据库密码", key="zentao_perf_db_password")
         db_name = st.text_input("数据库名", value=default_database, key="zentao_perf_db_name")
 
         # 连接方式选择
@@ -5730,6 +5807,7 @@ elif tool_category == "接口自动化测试":
         ]
 
         return base_url, interfaces
+
 
     # 检查依赖
     if not check_interface_dependencies():
