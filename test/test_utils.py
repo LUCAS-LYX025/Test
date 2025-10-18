@@ -1,5 +1,6 @@
 from PIL import Image
-
+# 在导入部分添加
+from bi_analyzer import BIAnalyzer
 # 最后导入自定义模块
 import difflib
 import pandas as pd
@@ -6257,6 +6258,79 @@ elif tool_category == "接口自动化测试":
         st.info("📝 请上传接口文档或选择快速测试数据")
 
     st.markdown('</div>', unsafe_allow_html=True)
+
+
+# 在工具选择部分添加BI工具
+elif tool_category == "BI数据分析工具":
+    show_doc("bi_analyzer")
+
+    # 初始化BI分析器
+    bi_tool = BIAnalyzer()
+
+    # 显示模板下载和文件上传
+    uploaded_file = bi_tool.show_upload_section()
+
+    if uploaded_file is not None:
+        # 加载数据
+        df, message = bi_tool.load_data(uploaded_file)
+
+        if df is not None:
+            st.success(message)
+
+            # 创建选项卡界面
+            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+                "📋 数据预览",
+                "📊 统计分析",
+                "🔍 数据透视",
+                "📈 趋势分析",
+                "🎯 数据仪表板",
+                "💾 导出报告"
+            ])
+
+            with tab1:
+                bi_tool.data_preview(df)
+
+            with tab2:
+                bi_tool.basic_statistics(df)
+                bi_tool.correlation_analysis(df)
+
+            with tab3:
+                bi_tool.create_pivot_table(df)
+
+            with tab4:
+                bi_tool.time_series_analysis(df)
+
+            with tab5:
+                bi_tool.create_dashboard(df)
+
+            with tab6:
+                bi_tool.export_report(df)
+
+        else:
+            st.error(message)
+    else:
+        # 显示使用说明
+        st.info("""
+        ### 🚀 BI数据分析工具使用说明
+
+        **功能特点:**
+        - 📊 **数据可视化**: 多种图表类型，直观展示数据
+        - 📈 **统计分析**: 描述性统计、相关性分析
+        - 🔍 **数据透视**: 灵活的数据透视表分析
+        - 📉 **趋势分析**: 时间序列分析和预测
+        - 🎯 **交互式仪表板**: 自定义数据仪表板
+        - 💾 **报告导出**: 多种格式的数据报告
+
+        **使用流程:**
+        1. 下载数据模板（推荐先使用模板了解格式要求）
+        2. 准备您的数据文件
+        3. 上传数据文件
+        4. 使用不同分析功能探索数据
+        5. 创建可视化图表和仪表板
+        6. 导出分析报告
+        """)
+
+
 
 # show_general_guidelines()
 author = AuthorProfile()

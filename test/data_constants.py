@@ -577,7 +577,7 @@ TOOL_CATEGORIES = {
         "color": "#667eea"
     },
     "字数统计工具": {
-        "icon": "📊",
+        "icon": "📝",
         "description": "文本分析、字符统计、频率分析",
         "color": "#48bb78"
     },
@@ -592,7 +592,7 @@ TOOL_CATEGORIES = {
         "color": "#9f7aea"
     },
     "JSON处理工具": {
-        "icon": "📝",
+        "icon": "👨‍💻",
         "description": "JSON格式验证、差异比较、数据解析",
         "color": "#f56565"
     },
@@ -634,7 +634,10 @@ TOOL_CATEGORIES = {
     "接口自动化测试": {
         "icon": "🚀",
         "description": "基于接口文档自动生成和执行测试用例"
-    }
+    },
+    "BI数据分析工具": {
+        "icon": "📊",
+        "description": "商业智能数据分析"},
 }
 
 # # CSS样式
