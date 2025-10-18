@@ -114,6 +114,7 @@ def generate_regex_from_examples(text, examples):
 
     return escaped_pattern + ".*"
 
+
 def escape_js_string(text):
     """安全转义 JavaScript 字符串"""
     return json.dumps(text)
@@ -6329,8 +6330,6 @@ elif tool_category == "BI数据分析工具":
         5. 创建可视化图表和仪表板
         6. 导出分析报告
         """)
-
-
 
 # show_general_guidelines()
 author = AuthorProfile()

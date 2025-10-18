@@ -4,8 +4,6 @@
 """
 
 import unittest
-import requests
-import json
 
 
 class TestURLValidation(unittest.TestCase):
@@ -16,15 +14,13 @@ class TestURLValidation(unittest.TestCase):
         # 测试手动成功的URL
         success_url = "http://10.0.3.54:3000/api/login"
         print(f"✅ 成功URL: {success_url}")
-        
+
         # 测试生成的URL
         generated_url = "https://jsonplaceholder.typicode.com/api/login"
         print(f"🔍 生成URL: {generated_url}")
-        
+
         # 比较两者
         self.assertEqual(generated_url, success_url, "生成的URL应该与成功URL一致")
-
-
 
     class TestTest_interface_000_______(unittest.TestCase):
         """获取所有帖子列表"""
@@ -98,8 +94,6 @@ class TestURLValidation(unittest.TestCase):
                 self.fail(f"请求失败: {e}")
             except Exception as e:
                 self.fail(f"测试执行错误: {e}")
-    
-
 
     class TestTest_interface_001_______(unittest.TestCase):
         """获取ID为1的帖子详情"""
@@ -173,8 +167,6 @@ class TestURLValidation(unittest.TestCase):
                 self.fail(f"请求失败: {e}")
             except Exception as e:
                 self.fail(f"测试执行错误: {e}")
-    
-
 
     class TestTest_interface_002_______(unittest.TestCase):
         """获取指定用户的帖子"""
@@ -248,8 +240,6 @@ class TestURLValidation(unittest.TestCase):
                 self.fail(f"请求失败: {e}")
             except Exception as e:
                 self.fail(f"测试执行错误: {e}")
-    
-
 
     class TestTest_interface_003______(unittest.TestCase):
         """创建新的帖子"""
@@ -259,7 +249,8 @@ class TestURLValidation(unittest.TestCase):
             self.headers = {'Content-Type': 'application/json'}
             self.expected_status = 201
             # 对于非GET请求，保留请求数据
-            self.data = {'title': '自动化测试帖子', 'body': '这是通过自动化测试工具创建的帖子', 'userId': 1} if "POST".upper() != "GET" else None
+            self.data = {'title': '自动化测试帖子', 'body': '这是通过自动化测试工具创建的帖子',
+                         'userId': 1} if "POST".upper() != "GET" else None
 
         def test_test_interface_003______(self):
             """测试接口: 创建新帖子"""
@@ -323,7 +314,7 @@ class TestURLValidation(unittest.TestCase):
                 self.fail(f"请求失败: {e}")
             except Exception as e:
                 self.fail(f"测试执行错误: {e}")
-    
+
 
 if __name__ == "__main__":
     unittest.main()

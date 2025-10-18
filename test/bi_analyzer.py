@@ -383,38 +383,358 @@ class BIAnalyzer:
                 st.error(f"生成报告失败: {str(e)}")
 
     def generate_html_report(self, df):
-        """生成HTML格式的报告"""
+        """生成HTML格式的报告 - 美化版本"""
+
+        # 生成数据统计信息
+        numeric_stats = df.describe().to_html(classes='stats-table') if not df.select_dtypes(
+            include=[np.number]).empty else "<p>无数值列统计信息</p>"
+
         html_content = f"""
-        <html>
+        <!DOCTYPE html>
+        <html lang="zh-CN">
         <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>BI数据分析报告</title>
             <style>
-                body {{ font-family: Arial, sans-serif; margin: 20px; }}
-                table {{ border-collapse: collapse; width: 100%; }}
-                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-                th {{ background-color: #f2f2f2; }}
-                .section {{ margin-bottom: 30px; }}
+                * {{
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }}
+
+                body {{
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    padding: 20px;
+                }}
+
+                .container {{
+                    max-width: 1200px;
+                    margin: 0 auto;
+                    background: white;
+                    border-radius: 15px;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                    overflow: hidden;
+                }}
+
+                .header {{
+                    background: linear-gradient(135deg, #2c3e50, #3498db);
+                    color: white;
+                    padding: 40px;
+                    text-align: center;
+                    position: relative;
+                }}
+
+                .header::before {{
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 100" fill="%23ffffff20"><polygon points="0,0 1000,50 1000,100 0,100"/></svg>');
+                    background-size: cover;
+                }}
+
+                .header h1 {{
+                    font-size: 2.5em;
+                    margin-bottom: 10px;
+                    font-weight: 300;
+                    position: relative;
+                }}
+
+                .header p {{
+                    font-size: 1.1em;
+                    opacity: 0.9;
+                    position: relative;
+                }}
+
+                .content {{
+                    padding: 40px;
+                }}
+
+                .section {{
+                    margin-bottom: 40px;
+                    padding: 30px;
+                    background: #f8f9fa;
+                    border-radius: 10px;
+                    border-left: 5px solid #3498db;
+                    transition: transform 0.3s ease, box-shadow 0.3s ease;
+                }}
+
+                .section:hover {{
+                    transform: translateY(-2px);
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+                }}
+
+                .section h2 {{
+                    color: #2c3e50;
+                    margin-bottom: 20px;
+                    font-size: 1.5em;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }}
+
+                .section h2::before {{
+                    content: '📊';
+                    font-size: 1.2em;
+                }}
+
+                .metrics-grid {{
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 20px;
+                    margin-bottom: 20px;
+                }}
+
+                .metric-card {{
+                    background: white;
+                    padding: 20px;
+                    border-radius: 10px;
+                    text-align: center;
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+                    border-top: 4px solid #3498db;
+                    transition: all 0.3s ease;
+                }}
+
+                .metric-card:hover {{
+                    transform: translateY(-3px);
+                    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+                }}
+
+                .metric-value {{
+                    font-size: 2em;
+                    font-weight: bold;
+                    color: #2c3e50;
+                    margin: 10px 0;
+                }}
+
+                .metric-label {{
+                    color: #7f8c8d;
+                    font-size: 0.9em;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }}
+
+                table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 20px 0;
+                    background: white;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+                }}
+
+                th {{
+                    background: linear-gradient(135deg, #3498db, #2980b9);
+                    color: white;
+                    padding: 15px;
+                    text-align: left;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    font-size: 0.9em;
+                }}
+
+                td {{
+                    padding: 12px 15px;
+                    border-bottom: 1px solid #ecf0f1;
+                    transition: background 0.3s ease;
+                }}
+
+                tr:hover td {{
+                    background: #f8f9fa;
+                }}
+
+                tr:last-child td {{
+                    border-bottom: none;
+                }}
+
+                .stats-table th {{
+                    background: linear-gradient(135deg, #e74c3c, #c0392b);
+                }}
+
+                .data-preview {{
+                    max-height: 400px;
+                    overflow-y: auto;
+                    border: 1px solid #bdc3c7;
+                    border-radius: 8px;
+                }}
+
+                .footer {{
+                    text-align: center;
+                    padding: 30px;
+                    background: #2c3e50;
+                    color: white;
+                    margin-top: 40px;
+                }}
+
+                .footer p {{
+                    margin: 5px 0;
+                    opacity: 0.8;
+                }}
+
+                .highlight {{
+                    background: linear-gradient(120deg, #a8e6cf 0%, #dcedc1 100%);
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    font-weight: 500;
+                }}
+
+                @media (max-width: 768px) {{
+                    .metrics-grid {{
+                        grid-template-columns: 1fr;
+                    }}
+
+                    .content {{
+                        padding: 20px;
+                    }}
+
+                    .section {{
+                        padding: 20px;
+                    }}
+                }}
             </style>
         </head>
         <body>
-            <h1>BI数据分析报告</h1>
-            <p>生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+            <div class="container">
+                <div class="header">
+                    <h1>📈 BI数据分析报告</h1>
+                    <p>专业数据洞察与可视化分析</p>
+                    <p>生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                </div>
 
-            <div class="section">
-                <h2>数据概览</h2>
-                <p>总行数: {len(df)}</p>
-                <p>总列数: {len(df.columns)}</p>
+                <div class="content">
+                    <!-- 数据概览部分 -->
+                    <div class="section">
+                        <h2>数据概览</h2>
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <div class="metric-label">总数据量</div>
+                                <div class="metric-value">{len(df):,}</div>
+                                <div class="metric-desc">行记录</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">特征数量</div>
+                                <div class="metric-value">{len(df.columns)}</div>
+                                <div class="metric-desc">数据列</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">数据完整性</div>
+                                <div class="metric-value">{((1 - df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100):.1f}%</div>
+                                <div class="metric-desc">非空比例</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">内存占用</div>
+                                <div class="metric-value">{df.memory_usage(deep=True).sum() / 1024 / 1024:.1f} MB</div>
+                                <div class="metric-desc">存储空间</div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 20px;">
+                            <p><span class="highlight">数据类型分布:</span></p>
+                            <ul style="list-style: none; columns: 2; gap: 20px;">
+                                <li>📄 数值类型: <strong>{len(df.select_dtypes(include=[np.number]).columns)}</strong> 列</li>
+                                <li>📝 文本类型: <strong>{len(df.select_dtypes(include=['object']).columns)}</strong> 列</li>
+                                <li>📅 日期时间: <strong>{len(df.select_dtypes(include=['datetime']).columns)}</strong> 列</li>
+                                <li>🔠 分类数据: <strong>{len(df.select_dtypes(include=['category']).columns)}</strong> 列</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- 数据预览部分 -->
+                    <div class="section">
+                        <h2>数据预览</h2>
+                        <p>显示前10行数据样本：</p>
+                        <div class="data-preview">
+                            {df.head(10).to_html(classes='data-table', index=False, escape=False)}
+                        </div>
+                    </div>
+
+                    <!-- 统计信息部分 -->
+                    <div class="section">
+                        <h2>统计信息</h2>
+                        <p>数值列的详细统计分析：</p>
+                        {numeric_stats}
+                    </div>
+
+                    <!-- 数据质量部分 -->
+                    <div class="section">
+                        <h2>数据质量评估</h2>
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <div class="metric-label">缺失值</div>
+                                <div class="metric-value">{df.isnull().sum().sum():,}</div>
+                                <div class="metric-desc">空值数量</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">重复行</div>
+                                <div class="metric-value">{df.duplicated().sum():,}</div>
+                                <div class="metric-desc">重复记录</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">唯一值率</div>
+                                <div class="metric-value">{((df.nunique().sum() / (len(df) * len(df.columns))) * 100):.1f}%</div>
+                                <div class="metric-desc">数据多样性</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">数据密度</div>
+                                <div class="metric-value">{((df.count().sum() / (len(df) * len(df.columns))) * 100):.1f}%</div>
+                                <div class="metric-desc">填充程度</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="footer">
+                    <p>📧 报告生成工具: BI数据分析系统</p>
+                    <p>⚡ 版本: 2.0 | 生成引擎: Python + Pandas</p>
+                    <p>© 2024 智能数据分析平台 - 专业的数据洞察解决方案</p>
+                </div>
             </div>
 
-            <div class="section">
-                <h2>数据预览</h2>
-                {df.head(10).to_html()}
-            </div>
+            <script>
+                // 简单的交云效果
+                document.addEventListener('DOMContentLoaded', function() {{
+                    // 表格行悬停效果
+                    const tables = document.querySelectorAll('table');
+                    tables.forEach(table => {{
+                        const rows = table.querySelectorAll('tr');
+                        rows.forEach((row, index) => {{
+                            if (index > 0) {{ // 跳过表头
+                                row.style.transition = 'all 0.3s ease';
+                                row.addEventListener('mouseenter', function() {{
+                                    this.style.transform = 'scale(1.02)';
+                                    this.style.boxShadow = '0 5px 15px rgba(0,0,0,0.2)';
+                                }});
+                                row.addEventListener('mouseleave', function() {{
+                                    this.style.transform = 'scale(1)';
+                                    this.style.boxShadow = 'none';
+                                }});
+                            }}
+                        }});
+                    }});
 
-            <div class="section">
-                <h2>统计信息</h2>
-                {df.describe().to_html()}
-            </div>
+                    // 数字计数动画
+                    const metricValues = document.querySelectorAll('.metric-value');
+                    metricValues.forEach(metric => {{
+                        const originalText = metric.textContent;
+                        if (/\\d+/.test(originalText)) {{
+                            metric.style.opacity = '0';
+                            setTimeout(() => {{
+                                metric.style.transition = 'opacity 0.5s ease';
+                                metric.style.opacity = '1';
+                            }}, 100);
+                        }}
+                    }});
+                }});
+            </script>
         </body>
         </html>
         """
