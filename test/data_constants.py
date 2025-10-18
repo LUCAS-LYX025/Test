@@ -576,51 +576,6 @@ TOOL_CATEGORIES = {
         "description": "生成测试数据、随机内容、模拟用户信息",
         "color": "#667eea"
     },
-    "字数统计工具": {
-        "icon": "📝",
-        "description": "文本分析、字符统计、频率分析",
-        "color": "#48bb78"
-    },
-    "文本对比工具": {
-        "icon": "🔍",
-        "description": "文本差异比较、版本对比分析",
-        "color": "#ed8936"
-    },
-    "正则测试工具": {
-        "icon": "⚡",
-        "description": "正则测试、模式匹配、替换操作",
-        "color": "#9f7aea"
-    },
-    "JSON处理工具": {
-        "icon": "👨‍💻",
-        "description": "JSON格式验证、差异比较、数据解析",
-        "color": "#f56565"
-    },
-    "日志分析工具": {
-        "icon": "📋",
-        "description": "日志解析、级别统计、模式识别",
-        "color": "#4299e1"
-    },
-    "时间处理工具": {
-        "icon": "⏰",
-        "description": "时间转换、日期计算、时间分析",
-        "color": "#38b2ac"
-    },
-    "IP/域名查询工具": {
-        "icon": "🌐",
-        "description": "IP定位、域名解析、网络信息查询",
-        "color": "#ed64a6"
-    },
-    "图片处理工具": {
-        "icon": "🖼️",
-        "description": "格式转换、压缩、尺寸调整，加水印",
-        "color": "#ed64a6"
-    },
-    "加密/解密工具": {
-        "icon": "🔐",
-        "description": "各种加密解密算法工具",
-        "color": "#ed64a6"
-    },
     "测试用例生成器": {
         "icon": "🧪",
         "description": "AI生成测试用例，支持导出用例",
@@ -631,13 +586,59 @@ TOOL_CATEGORIES = {
         "description": "禅道数据统计、绩效分析、报告生成",
         "color": "#4CAF50"
     },
+    "日志分析工具": {
+        "icon": "📋",
+        "description": "日志解析、级别统计、模式识别",
+        "color": "#4299e1"
+    },
+    "BI数据分析工具": {
+        "icon": "📊",
+        "description": "商业智能数据分析"
+    },
+    "文本对比工具": {
+        "icon": "🔍",
+        "description": "文本差异比较、版本对比分析",
+        "color": "#ed8936"
+    },
+    "字数统计工具": {
+        "icon": "📝",
+        "description": "文本分析、字符统计、频率分析",
+        "color": "#48bb78"
+    },
+    "正则测试工具": {
+        "icon": "⚡",
+        "description": "正则测试、模式匹配、替换操作",
+        "color": "#9f7aea"
+    },
+    "加密/解密工具": {
+        "icon": "🔐",
+        "description": "各种加密解密算法工具",
+        "color": "#ed64a6"
+    },
+    "JSON处理工具": {
+        "icon": "👨‍💻",
+        "description": "JSON格式验证、差异比较、数据解析",
+        "color": "#f56565"
+    },
+    "时间处理工具": {
+        "icon": "⏰",
+        "description": "时间转换、日期计算、时间分析",
+        "color": "#38b2ac"
+    },
+    "图片处理工具": {
+        "icon": "🖼️",
+        "description": "格式转换、压缩、尺寸调整，加水印",
+        "color": "#ed64a6"
+    },
+    "IP/域名查询工具": {
+        "icon": "🌐",
+        "description": "IP定位、域名解析、网络信息查询",
+        "color": "#ed64a6"
+    },
     "接口自动化测试": {
         "icon": "🚀",
         "description": "基于接口文档自动生成和执行测试用例"
     },
-    "BI数据分析工具": {
-        "icon": "📊",
-        "description": "商业智能数据分析"},
 }
 
 # # CSS样式
