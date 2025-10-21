@@ -2443,22 +2443,26 @@ if tool_category == "日志分析工具":
                         selected_column = st.selectbox("选择列", st.session_state.csv_columns, key="csv_filter_col")
 
                     with col2:
-                        filter_operator = st.selectbox("操作符", ["包含", "等于", "开头为", "结尾为"], key="csv_filter_op")
+                        filter_operator = st.selectbox("操作符", ["包含", "等于", "开头为", "结尾为", "有值", "没有值"], key="csv_filter_op")
 
                     with col3:
-                        filter_value = st.text_input("值", key="csv_filter_value")
+                        if filter_operator in ["包含", "等于", "开头为", "结尾为"]:
+                            filter_value = st.text_input("值", key="csv_filter_value")
+                        else:  # "有值" 或 "没有值"
+                            filter_value = None
+                            st.info("此条件无需输入值")
 
                     with col4:
                         st.write("")
                         st.write("")
                         if st.button("添加条件", key="add_csv_condition", use_container_width=True):
-                            if not filter_value:
+                            if filter_operator in ["包含", "等于", "开头为", "结尾为"] and not filter_value:
                                 st.warning("请输入筛选值")
                             else:
                                 # 将CSV列条件转换为文本条件
                                 new_filter = {
                                     'type': 'keyword',
-                                    'value': filter_value,
+                                    'value': filter_value if filter_operator in ["包含", "等于", "开头为", "结尾为"] else "",
                                     'column': selected_column,
                                     'operator': filter_operator
                                 }
@@ -2466,7 +2470,6 @@ if tool_category == "日志分析工具":
                                 st.success("✅ 条件已添加")
                                 if st.session_state.auto_apply_filters:
                                     st.rerun()
-
                 elif filter_type == "JSON字段筛选" and st.session_state.json_columns:
                     col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 2, 1])
 
@@ -2482,15 +2485,15 @@ if tool_category == "日志分析工具":
                             st.warning("未找到JSON字段")
 
                     with col3:
-                        value_type = st.selectbox("值类型", ["文本匹配", "数值范围"], key="json_value_type")
+                        filter_operator = st.selectbox("操作符", ["包含", "等于", "开头为", "结尾为", "有值", "没有值"], key="json_filter_op")
 
                     with col4:
-                        if value_type == "文本匹配":
+                        if filter_operator in ["包含", "等于", "开头为", "结尾为"]:
                             json_value = st.text_input("字段值", key="json_filter_value")
                             value_range = None
-                        else:
+                        elif filter_operator == "数值范围":
                             json_value = None
-                            # 数值范围筛选
+                            # 数值范围筛选代码
                             try:
                                 numeric_values = []
                                 for value in st.session_state.df[json_column].dropna():
@@ -2514,6 +2517,10 @@ if tool_category == "日志分析工具":
                                     st.info("该字段不包含数值数据")
                             except:
                                 value_range = None
+                        else:  # "有值" 或 "没有值"
+                            json_value = None
+                            value_range = None
+                            st.info("此条件无需输入值")
 
                     with col5:
                         st.write("")
@@ -2525,6 +2532,7 @@ if tool_category == "日志分析工具":
                                 new_filter = {
                                     'column': json_column,
                                     'field': json_field,
+                                    'operator': filter_operator,  # 新增操作符
                                     'value': json_value,
                                     'value_range': value_range
                                 }
@@ -2541,21 +2549,34 @@ if tool_category == "日志分析工具":
                 for i, filter_config in enumerate(st.session_state.text_filters):
                     col1, col2, col3 = st.columns([3, 2, 1])
                     with col1:
-                        type_name = {
-                            "log_level": "日志级别",
-                            "ip_filter": "IP地址",
-                            "status_code": "状态码",
-                            "keyword": "关键词",
-                            "show_only_errors": "仅显示错误",
-                            "hide_debug": "隐藏调试"
-                        }.get(filter_config['type'], filter_config['type'])
+                        if filter_config['type'] == 'keyword' and filter_config.get('column'):
+                            # 对于CSV列筛选条件，显示列名和操作符
+                            column_name = filter_config.get('column', '未知列')
+                            operator = filter_config.get('operator', '包含')
+                            value = filter_config.get('value', '')
 
-                        if filter_config['type'] == 'log_level':
-                            value_display = ", ".join(filter_config['value'])
+                            if operator in ['有值', '没有值']:
+                                display_text = f"{column_name} {operator}"
+                            else:
+                                display_text = f"{column_name} {operator} '{value}'"
+
+                            st.write(f"**CSV列筛选**: {display_text}")
                         else:
-                            value_display = filter_config.get('value', '')
+                            type_name = {
+                                "log_level": "日志级别",
+                                "ip_filter": "IP地址",
+                                "status_code": "状态码",
+                                "keyword": "关键词",
+                                "show_only_errors": "仅显示错误",
+                                "hide_debug": "隐藏调试"
+                            }.get(filter_config['type'], filter_config['type'])
 
-                        st.write(f"**{type_name}**: {value_display}")
+                            if filter_config['type'] == 'log_level':
+                                value_display = ", ".join(filter_config['value'])
+                            else:
+                                value_display = filter_config.get('value', '')
+
+                            st.write(f"**{type_name}**: {value_display}")
 
                     with col2:
                         st.write(f"**类型**: 文本条件")

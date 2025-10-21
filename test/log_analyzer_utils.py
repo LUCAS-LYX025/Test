@@ -1,3 +1,4 @@
+import streamlit as st
 import pandas as pd
 import json
 
@@ -16,13 +17,62 @@ class LogAnalyzerUtils:
         for filter_config in text_filters:
             filter_type = filter_config.get('type')
             filter_value = filter_config.get('value')
+            filter_operator = filter_config.get('operator', '包含')  # 默认操作符
             filter_match = False
 
-            if not filter_value:  # 空条件跳过
-                continue
+            # 处理CSV列筛选条件
+            if filter_type == 'keyword' and filter_config.get('column'):
+                column_name = filter_config.get('column')
 
-            if filter_type == "log_level":
-                # 日志级别过滤
+                # 从行中提取该列的值 - 支持多种分隔符
+                try:
+                    # 尝试多种可能的分隔符
+                    separators = ['\t', '|', ',']
+                    columns = None
+
+                    for sep in separators:
+                        if sep in line:
+                            columns = line.split(sep)
+                            break
+
+                    # 如果没有找到分隔符，使用空格分割
+                    if columns is None:
+                        columns = line.split()
+
+                    if st.session_state.csv_columns and len(columns) == len(st.session_state.csv_columns):
+                        column_index = st.session_state.csv_columns.index(column_name)
+                        column_value = columns[column_index].strip()
+
+                        # 检查是否为空值（包括None、null、空字符串等）
+                        def is_empty_value(value):
+                            if value is None:
+                                return True
+                            value_str = str(value).strip().lower()
+                            return value_str in ['', 'none', 'null', 'nan', 'undefined', 'null']
+
+                        if filter_operator == '有值':
+                            filter_match = not is_empty_value(column_value)  # 有具体内容
+                        elif filter_operator == '没有值':
+                            filter_match = is_empty_value(column_value)  # 值为空
+                        elif filter_operator == '包含':
+                            filter_match = filter_value.lower() in column_value.lower()
+                        elif filter_operator == '等于':
+                            filter_match = column_value == filter_value
+                        elif filter_operator == '开头为':
+                            filter_match = column_value.startswith(filter_value)
+                        elif filter_operator == '结尾为':
+                            filter_match = column_value.endswith(filter_value)
+
+                        # 调试信息
+                        print(
+                            f"DEBUG - 列: {column_name}, 值: '{column_value}', 操作符: {filter_operator}, 匹配: {filter_match}")
+
+                except Exception as e:
+                    print(f"DEBUG - 解析错误: {e}")
+                    filter_match = False
+
+            # 日志级别过滤
+            elif filter_type == "log_level":
                 level_match = False
                 if "错误" in filter_value and any(word in line.upper() for word in ['ERROR', 'ERR']):
                     level_match = True
@@ -34,26 +84,26 @@ class LogAnalyzerUtils:
                     level_match = True
                 filter_match = level_match
 
+            # IP地址过滤
             elif filter_type == "ip_filter":
-                # IP地址过滤
                 filter_match = filter_value in line
 
+            # 状态码过滤
             elif filter_type == "status_code":
-                # 状态码过滤
                 codes = [code.strip() for code in filter_value.split(',')]
                 filter_match = any(
                     f" {code} " in line or line.endswith(f" {code}") or f" {code}" in line for code in codes)
 
+            # 普通关键词过滤
             elif filter_type == "keyword":
-                # 关键词过滤
                 filter_match = filter_value.lower() in line.lower()
 
+            # 仅显示错误
             elif filter_type == "show_only_errors":
-                # 仅显示错误
                 filter_match = any(word in line.upper() for word in ['ERROR', 'ERR', 'FAIL', 'EXCEPTION'])
 
+            # 隐藏调试
             elif filter_type == "hide_debug":
-                # 隐藏调试
                 filter_match = not any(word in line.upper() for word in ['DEBUG', 'DBG'])
 
             # 根据逻辑运算符组合结果
