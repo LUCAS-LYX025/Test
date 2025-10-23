@@ -72,15 +72,18 @@ class LogAnalyzerUtils:
                     filter_match = False
 
             # 日志级别过滤
+            # 日志级别过滤 - 修复DEBUG判断
             elif filter_type == "log_level":
                 level_match = False
-                if "错误" in filter_value and any(word in line.upper() for word in ['ERROR', 'ERR']):
+                if "错误" in filter_value and any(word in line.upper() for word in [' ERROR', ' ERR ', ']ERROR', ']ERR']):
                     level_match = True
-                if "警告" in filter_value and any(word in line.upper() for word in ['WARN', 'WARNING']):
+                if "警告" in filter_value and any(
+                        word in line.upper() for word in [' WARN', ' WARNING', ']WARN', ']WARNING']):
                     level_match = True
-                if "信息" in filter_value and any(word in line.upper() for word in ['INFO', 'INFORMATION']):
+                if "信息" in filter_value and any(
+                        word in line.upper() for word in [' INFO', ' INFORMATION', ']INFO', ']INFORMATION']):
                     level_match = True
-                if "调试" in filter_value and any(word in line.upper() for word in ['DEBUG', 'DBG']):
+                if "调试" in filter_value and any(word in line.upper() for word in [' DEBUG', ' DBG', ']DEBUG', ']DBG']):
                     level_match = True
                 filter_match = level_match
 
@@ -170,15 +173,16 @@ class LogAnalyzerUtils:
 
     @staticmethod
     def detect_log_level(line):
-        """检测日志级别"""
+        """检测日志级别 - 修复DEBUG判断"""
         line_upper = line.upper()
-        if any(word in line_upper for word in ['ERROR', 'ERR']):
+        # 添加空格或方括号前缀，避免匹配到单词中的部分
+        if any(word in line_upper for word in [' ERROR', ' ERR ', ']ERROR', ']ERR']):
             return "🔴 错误"
-        elif any(word in line_upper for word in ['WARN', 'WARNING']):
+        elif any(word in line_upper for word in [' WARN', ' WARNING', ']WARN', ']WARNING']):
             return "🟡 警告"
-        elif any(word in line_upper for word in ['INFO', 'INFORMATION']):
+        elif any(word in line_upper for word in [' INFO', ' INFORMATION', ']INFO', ']INFORMATION']):
             return "🔵 信息"
-        elif any(word in line_upper for word in ['DEBUG', 'DBG']):
+        elif any(word in line_upper for word in [' DEBUG', ' DBG', ']DEBUG', ']DBG']):
             return "🟢 调试"
         else:
             return "⚪ 其他"

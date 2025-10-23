@@ -269,6 +269,8 @@ st.markdown(f'<div class="sub-header">{TOOL_CATEGORIES[tool_category]["icon"]} {
 if tool_category == "数据生成工具":
     show_doc("data_generator")
     generator = DataGenerator()
+    if 'clear_data_gen_counter' not in st.session_state:
+        st.session_state.clear_data_gen_counter = 0
 
     gen_mode = st.radio(
         "选择生成模式",
@@ -284,13 +286,26 @@ if tool_category == "数据生成工具":
         else:
             st.markdown('<div class="category-card">🚀 Faker高级数据生成器</div>', unsafe_allow_html=True)
 
-            col1, col2, col3 = st.columns([2, 2, 1])
+            col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
             with col1:
                 selected_category = st.selectbox("选择数据类别", list(CATEGORIES.keys()))
             with col2:
                 selected_subcategory = st.selectbox("选择具体类型", CATEGORIES[selected_category])
             with col3:
                 count = st.number_input("生成数量", min_value=1, max_value=100, value=5)
+            with col4:
+                st.write("")  # 占位符
+                st.write("")
+                if st.button("🗑️ 清空", key="clear_faker", use_container_width=True):
+                    if 'faker_result' in st.session_state:
+                        del st.session_state.faker_result
+                    if 'last_category' in st.session_state:
+                        del st.session_state.last_category
+                    # 确保计数器存在
+                    if 'clear_data_gen_counter' not in st.session_state:
+                        st.session_state.clear_data_gen_counter = 0
+                    st.session_state.clear_data_gen_counter += 1
+                    st.rerun()
 
             extra_params = {}
             if selected_subcategory == "随机文本":
@@ -2260,12 +2275,36 @@ if tool_category == "日志分析工具":
                     st.success("✅ 日志数据导入成功！")
 
         else:  # 直接粘贴
-            log_content = st.text_area("粘贴日志内容", height=200,
-                                       placeholder="请将日志内容粘贴到此处...",
-                                       key="paste_content")
+            if 'clear_paste_counter' not in st.session_state:
+                st.session_state.clear_paste_counter = 0
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                # 使用动态key，每次清空时key会改变
+                paste_key = f"paste_content_{st.session_state.clear_paste_counter}"
+                log_content = st.text_area("粘贴日志内容", height=200,
+                                           placeholder="请将日志内容粘贴到此处...",
+                                           key=paste_key)
+            with col2:
+                st.write("")  # 占位符
+                st.write("")
+                if st.button("🗑️ 清空", key="clear_paste", use_container_width=True):
+                    # 清空所有相关状态
+                    st.session_state.log_data = None
+                    st.session_state.file_info = None
+                    st.session_state.filtered_lines = []
+                    st.session_state.search_results = []
+                    st.session_state.search_count = 0
+                    st.session_state.is_csv = False
+                    st.session_state.df = None
+                    st.session_state.csv_columns = []
+                    st.session_state.json_columns = []
+                    st.session_state.json_fields = {}
+                    # 增加清空计数器，使text_area的key改变
+                    st.session_state.clear_paste_counter += 1
+                    st.rerun()
 
             # 自动导入粘贴的日志内容
-            if log_content:
+            if log_content and log_content.strip():
                 st.session_state.log_data = log_content
                 st.session_state.file_info = None
                 st.session_state.filtered_lines = []
@@ -2300,10 +2339,15 @@ if tool_category == "日志分析工具":
         st.header("📊 日志统计信息")
 
         # 改进的日志级别统计
-        error_count = sum(1 for line in lines if any(word in line.upper() for word in ['ERROR', 'ERR']))
-        warn_count = sum(1 for line in lines if any(word in line.upper() for word in ['WARN', 'WARNING']))
-        info_count = sum(1 for line in lines if any(word in line.upper() for word in ['INFO', 'INFORMATION']))
-        debug_count = sum(1 for line in lines if any(word in line.upper() for word in ['DEBUG', 'DBG']))
+        # 改进的日志级别统计 - 修复DEBUG判断
+        error_count = sum(
+            1 for line in lines if any(word in line.upper() for word in [' ERROR', ' ERR ', ']ERROR', ']ERR']))
+        warn_count = sum(
+            1 for line in lines if any(word in line.upper() for word in [' WARN', ' WARNING', ']WARN', ']WARNING']))
+        info_count = sum(1 for line in lines if
+                         any(word in line.upper() for word in [' INFO', ' INFORMATION', ']INFO', ']INFORMATION']))
+        debug_count = sum(
+            1 for line in lines if any(word in line.upper() for word in [' DEBUG', ' DBG', ']DEBUG', ']DBG']))
         other_count = total_lines - error_count - warn_count - info_count - debug_count
 
         # 统计指标
