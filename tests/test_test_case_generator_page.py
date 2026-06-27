@@ -58,8 +58,18 @@ def test_global_model_presets_cover_mainstream_overseas_providers():
 def test_model_presets_all_have_supported_group_and_default_group_is_free_demo():
     assert DEFAULT_STATE["tcg_provider_group"] == "免费示范"
     assert DEFAULT_STATE["tcg_provider_group_picker"] == "免费示范"
+    assert DEFAULT_STATE["tcg_ali_api_base"] == "https://dashscope.aliyuncs.com/compatible-mode/v1"
     assert set(PRESET_GROUPS.keys()) == {"免费示范", "均衡", "旗舰", "推理"}
     assert all(preset["group"] in PRESET_GROUPS for preset in MODEL_PRESETS.values())
+
+
+def test_qwen_presets_fill_ali_compatible_base_url():
+    assert MODEL_PRESETS["qwen_flash"]["state_updates"]["tcg_ali_api_base"] == (
+        "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    )
+    assert MODEL_PRESETS["qwen3_max"]["state_updates"]["tcg_ali_api_base"] == (
+        "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    )
 
 
 def test_get_preset_ids_by_group_returns_grouped_choices():

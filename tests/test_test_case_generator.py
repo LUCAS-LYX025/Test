@@ -207,12 +207,16 @@ def test_call_ali_api_uses_configured_model_version(monkeypatch):
 
         def json(self):
             return {
-                "output": {
-                    "text": (
-                        '[{"用例ID":"TC001","用例名称":"登录成功","前置条件":"账号存在",'
-                        '"测试步骤":"1. 输入账号","预期结果":"登录成功","优先级":"高","测试类型":"功能"}]'
-                    )
-                }
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '[{"用例ID":"TC001","用例名称":"登录成功","前置条件":"账号存在",'
+                                '"测试步骤":"1. 输入账号","预期结果":"登录成功","优先级":"高","测试类型":"功能"}]'
+                            )
+                        }
+                    }
+                ]
             }
 
     def _fake_post(url, headers=None, json=None, timeout=None):
@@ -235,7 +239,8 @@ def test_call_ali_api_uses_configured_model_version(monkeypatch):
     )
 
     assert captured["json"]["model"] == "qwen3-max"
-    assert captured["url"].endswith("/generation")
+    assert captured["url"] == "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+    assert captured["json"]["messages"][0]["role"] == "user"
     assert cases[0]["用例ID"] == "TC001"
 
 

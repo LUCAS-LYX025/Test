@@ -59,6 +59,7 @@ MODEL_PRESETS = {
         "state_updates": {
             "tcg_platform": "ali",
             "tcg_ali_model_version": "qwen-flash",
+            "tcg_ali_api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         },
     },
     "qwen3_max": {
@@ -71,6 +72,7 @@ MODEL_PRESETS = {
         "state_updates": {
             "tcg_platform": "ali",
             "tcg_ali_model_version": "qwen3-max",
+            "tcg_ali_api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         },
     },
     "deepseek_chat": {
@@ -272,6 +274,7 @@ DEFAULT_STATE = {
     "tcg_ocr_preprocess_mode": "增强文本",
     "tcg_ali_api_key": "",
     "tcg_ali_model_version": "qwen-flash",
+    "tcg_ali_api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
     "tcg_openai_api_key": "",
     "tcg_openai_model_version": "gpt-5.4-mini",
     "tcg_openai_api_base": "",
@@ -337,6 +340,10 @@ def _get_preset_ids_by_group(group_name: str) -> List[str]:
 
 def _get_demo_glm_api_key() -> str:
     for key_name in ("TCG_DEMO_GLM_API_KEY", "QA_TOOLKIT_DEMO_GLM_API_KEY"):
+        env_value = str(os.environ.get(key_name, "")).strip()
+        if env_value:
+            return env_value
+
         secret_value = ""
         try:
             secret_value = str(st.secrets.get(key_name, "")).strip()
@@ -344,10 +351,6 @@ def _get_demo_glm_api_key() -> str:
             secret_value = ""
         if secret_value:
             return secret_value
-
-        env_value = os.getenv(key_name, "").strip()
-        if env_value:
-            return env_value
     return ""
 
 
@@ -455,10 +458,16 @@ def _render_api_config(platform: str, active_preset: Dict[str, Any] | None = Non
             st.text_input("阿里 API Key", key="tcg_ali_api_key", type="password")
         with col2:
             st.text_input("模型名称", key="tcg_ali_model_version")
-        st.caption("推荐模型: qwen-flash、qwen-plus、qwen-max、qwen3-max。")
+        st.text_input(
+            "兼容 Base URL",
+            key="tcg_ali_api_base",
+            placeholder="默认使用 https://dashscope.aliyuncs.com/compatible-mode/v1",
+        )
+        st.caption("推荐模型: qwen-flash、qwen-plus、qwen-max、qwen3-max。默认按阿里云百炼 OpenAI 兼容接口调用。")
         return {
             "api_key": st.session_state.tcg_ali_api_key,
             "model_version": st.session_state.tcg_ali_model_version,
+            "api_base": st.session_state.tcg_ali_api_base,
         }
 
     if platform == "openai":

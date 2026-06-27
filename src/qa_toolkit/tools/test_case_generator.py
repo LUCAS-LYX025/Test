@@ -188,30 +188,33 @@ class TestCaseGenerator:
     def _call_ali_api(self, requirement: str, api_config: Dict, id_prefix: str,
                       case_style: str, language: str, target_case_count: int,
                       coverage_focus: List[str]) -> List[Dict]:
-        """调用阿里通义千问API"""
+        """调用阿里云百炼的 OpenAI 兼容 Chat Completions 接口。"""
         headers = {
             "Authorization": f"Bearer {api_config['api_key']}",
             "Content-Type": "application/json"
         }
+        request_url = self._resolve_ali_chat_completion_url(api_config.get("api_base"))
 
         prompt = self._build_prompt(
             requirement,
             id_prefix,
             case_style,
             language,
+            "openai",
             target_case_count=target_case_count,
             coverage_focus=coverage_focus
         )
 
         payload = {
             "model": api_config.get("model_version", "qwen-flash"),
-            "input": {"messages": [{"role": "user", "content": prompt}]},
-            "parameters": {"result_format": "text"}
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.3,
+            "max_tokens": 4000,
         }
 
         try:
             response = requests.post(
-                "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
+                request_url,
                 headers=headers,
                 json=payload,
                 timeout=60
@@ -219,8 +222,8 @@ class TestCaseGenerator:
             response.raise_for_status()
             response_data = response.json()
 
-            if "output" in response_data and "text" in response_data["output"]:
-                result_text = response_data["output"]["text"]
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                result_text = response_data["choices"][0]["message"]["content"]
                 return self._parse_testcases(result_text, id_prefix, language)
             else:
                 raise Exception("API响应格式错误")
@@ -446,6 +449,16 @@ class TestCaseGenerator:
         normalized = str(api_base or "https://api.openai.com/v1").strip().rstrip("/")
         if not normalized:
             normalized = "https://api.openai.com/v1"
+
+        if normalized.endswith("/chat/completions"):
+            return normalized
+        return f"{normalized}/chat/completions"
+
+    def _resolve_ali_chat_completion_url(self, api_base: Optional[str] = None) -> str:
+        """将阿里云百炼地址归一化为 OpenAI 兼容 chat completions 端点。"""
+        normalized = str(api_base or "https://dashscope.aliyuncs.com/compatible-mode/v1").strip().rstrip("/")
+        if not normalized:
+            normalized = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
         if normalized.endswith("/chat/completions"):
             return normalized
